@@ -404,8 +404,8 @@ func generateStorageKey(metricType MetricType, key string, tags AnyTags) *preall
 			buf.tagKeys = append(buf.tagKeys, k)
 		}
 		if len(buf.tagKeys) > 0 {
-			if len(buf.tagKeys) > 32 {
-				sort.Strings(buf.tagKeys)
+			if len(buf.tagKeys) > 24 {
+				sort.Strings(buf.tagKeys) // It requires to wrap the slice into an interface, so it has a memory allocation
 			} else {
 				BubbleSort(buf.tagKeys)
 			}
