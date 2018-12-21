@@ -102,26 +102,6 @@ func BenchmarkTagsFastString(b *testing.B) {
 	})
 }
 
-/*func TestGC(t *testing.T) {
-	var memstats, cleanedMemstats runtime.MemStats
-	goroutinesCount := runtime.NumGoroutine()
-	runtime.GC()
-	runtime.ReadMemStats(&memstats)
-	metric := CreateOrGetWorkerGauge(`test_metric`, nil)
-	metric.SetUpdatedAt(time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC))
-	newGoroutinesCount := runtime.NumGoroutine()
-	GC()
-	runtime.GC()
-	runtime.ReadMemStats(&cleanedMemstats)
-	cleanedGoroutinesCount := runtime.NumGoroutine()
-	if goroutinesCount+1 != newGoroutinesCount || cleanedGoroutinesCount != goroutinesCount {
-		t.Errorf("goroutinesCount+1 != newGoroutinesCount || cleanedGoroutinesCount != goroutinesCount: %v %v %v", goroutinesCount, newGoroutinesCount, cleanedGoroutinesCount)
-	}
-	if memstats.HeapInuse != cleanedMemstats.HeapInuse {
-		t.Errorf("memstats.HeapInuse != cleanedMemstats.HeapInuse: %v %v", memstats.HeapInuse, cleanedMemstats.HeapInuse)
-	}
-}*/
-
 func TestGC(t *testing.T) {
 	var memstats, cleanedMemstats runtime.MemStats
 	goroutinesCount := runtime.NumGoroutine()
