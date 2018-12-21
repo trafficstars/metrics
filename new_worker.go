@@ -9,6 +9,7 @@ import (
 func runAndRegisterWorkerWrapper(key string, worker Worker, tags AnyTags) error {
 	err := runAndRegister(key, worker, tags)
 	if err != nil {
+		return nil
 		worker.Stop()
 		log.WithFields(log.Fields{
 			"metric_key": key,

@@ -1,9 +1,11 @@
 package metrics
 
 import (
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
+	"unsafe"
 
 	"github.com/sirupsen/logrus"
 )
@@ -15,32 +17,48 @@ const (
 type Tag interface{}
 type Tags map[string]Tag
 
-func TagValueToString(vI Tag) string {
+func CastStringToBytes(str string) []byte {
+	hdr := *(*reflect.StringHeader)(unsafe.Pointer(&str))
+	return *(*[]byte)(unsafe.Pointer(&reflect.SliceHeader{
+		Data: hdr.Data,
+		Len:  hdr.Len,
+		Cap:  hdr.Len,
+	}))
+}
+
+var (
+	trueBytes        = []byte("true")
+	falseBytes       = []byte("false")
+	nullBytes        = []byte("null")
+	unknownTypeBytes = []byte("<unknown_type>")
+)
+
+func TagValueToBytes(vI Tag) []byte {
 	switch v := vI.(type) {
 	case int:
-		return strconv.FormatInt(int64(v), 10)
+		return CastStringToBytes(strconv.FormatInt(int64(v), 10))
 	case uint64:
-		return strconv.FormatUint(v, 10)
+		return CastStringToBytes(strconv.FormatUint(v, 10))
 	case int64:
-		return strconv.FormatInt(v, 10)
+		return CastStringToBytes(strconv.FormatInt(v, 10))
 	case string:
-		return strings.Replace(v, ",", "_", -1)
+		return CastStringToBytes(strings.Replace(v, ",", "_", -1))
 	case bool:
 		switch v {
 		case true:
-			return "true"
+			return trueBytes
 		case false:
-			return "false"
+			return falseBytes
 		}
 	case []byte:
-		return string(v)
+		return v
 	case nil:
-		return "null"
+		return nullBytes
 	case interface{ String() string }:
-		return strings.Replace(v.String(), ",", "_", -1)
+		return CastStringToBytes(strings.Replace(v.String(), ",", "_", -1))
 	}
 
-	return "<unknown_type>"
+	return unknownTypeBytes
 }
 
 func (tags Tags) ForLogrus(merge logrus.Fields) logrus.Fields {
@@ -89,7 +107,7 @@ func (tags Tags) ToFastTags() FastTags {
 	for _, k := range keys {
 		r = append(r, FastTag{
 			Key:   k,
-			Value: []byte(TagValueToString(tags[k])),
+			Value: TagValueToBytes(tags[k]),
 		})
 	}
 	return r

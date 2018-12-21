@@ -35,7 +35,7 @@ type MetricsSendIntervaler interface {
 }
 
 type Metrics struct {
-	storage               atomicmap.Map
+	storage atomicmap.Map
 	//getterCache           atomicmap.Map
 	metricSender          metricworker.MetricSender
 	metricsSendIntervaler MetricsSendIntervaler
@@ -51,7 +51,7 @@ func (m *Metrics) GetSendInterval() time.Duration {
 
 type preallocatedStringerBuffer struct {
 	sync.Mutex
-	tagKeys []string
+	tagKeys sort.StringSlice
 	result  bytes.Buffer
 }
 
@@ -355,6 +355,24 @@ func Get(metricType MetricType, key string, tags AnyTags) *Metric {
 	return metrics.Get(metricType, key, tags)
 }
 
+// copied from https://github.com/demdxx/sort-algorithms/blob/master/algorithms.go
+func BubbleSort(data sort.StringSlice) {
+	n := data.Len() - 1
+	b := false
+	for i := 0; i < n; i++ {
+		for j := 0; j < n-i; j++ {
+			if data.Less(j+1, j) {
+				data.Swap(j+1, j)
+				b = true
+			}
+		}
+		if !b {
+			break
+		}
+		b = false
+	}
+}
+
 func generateStorageKey(metricType MetricType, key string, tags AnyTags) *preallocatedStringerBuffer {
 	// It's required to avoid memory allocations. So if we allocated a buffer once, we reuse it.
 	// We have buffers (of amount maxConcurrency) to be able to process this function concurrently.
@@ -385,13 +403,19 @@ func generateStorageKey(metricType MetricType, key string, tags AnyTags) *preall
 			}
 			buf.tagKeys = append(buf.tagKeys, k)
 		}
-		sort.Strings(buf.tagKeys)
+		if len(buf.tagKeys) > 0 {
+			if len(buf.tagKeys) > 32 {
+				sort.Strings(buf.tagKeys)
+			} else {
+				BubbleSort(buf.tagKeys)
+			}
+		}
 
 		for _, k := range buf.tagKeys {
 			buf.result.WriteString(`,`)
 			buf.result.WriteString(k)
 			buf.result.WriteString(`=`)
-			buf.result.WriteString(TagValueToString(inTags[k]))
+			buf.result.Write(TagValueToBytes(inTags[k]))
 		}
 	case FastTags:
 		for _, tag := range inTags {
