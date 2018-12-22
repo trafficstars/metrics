@@ -415,7 +415,7 @@ func generateStorageKey(metricType MetricType, key string, tags AnyTags) *preall
 			buf.result.WriteString(`,`)
 			buf.result.WriteString(k)
 			buf.result.WriteString(`=`)
-			buf.result.Write(TagValueToBytes(inTags[k]))
+			buf.result.WriteString(TagValueToString(inTags[k]))
 		}
 	case FastTags:
 		for _, tag := range inTags {

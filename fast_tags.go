@@ -9,6 +9,15 @@ type FastTag struct {
 	Value []byte
 }
 
+func TagValueToBytes(value Tag) []byte {
+	switch v := value.(type) {
+	case []byte:
+		return v
+	default:
+		return []byte(TagValueToString(value))
+	}
+}
+
 func (tag *FastTag) Set(value interface{}) {
 	tag.Value = TagValueToBytes(value)
 }

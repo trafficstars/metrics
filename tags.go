@@ -1,11 +1,11 @@
 package metrics
 
 import (
-	"reflect"
+	//"reflect"
 	"sort"
 	"strconv"
 	"strings"
-	"unsafe"
+	//"unsafe"
 
 	"github.com/sirupsen/logrus"
 )
@@ -17,6 +17,7 @@ const (
 type Tag interface{}
 type Tags map[string]Tag
 
+/*
 func CastStringToBytes(str string) []byte {
 	hdr := *(*reflect.StringHeader)(unsafe.Pointer(&str))
 	return *(*[]byte)(unsafe.Pointer(&reflect.SliceHeader{
@@ -59,6 +60,34 @@ func TagValueToBytes(vI Tag) []byte {
 	}
 
 	return unknownTypeBytes
+}*/
+
+func TagValueToString(vI Tag) string {
+	switch v := vI.(type) {
+	case int:
+		return strconv.FormatInt(int64(v), 10)
+	case uint64:
+		return strconv.FormatUint(v, 10)
+	case int64:
+		return strconv.FormatInt(v, 10)
+	case string:
+		return strings.Replace(v, ",", "_", -1)
+	case bool:
+		switch v {
+		case true:
+			return "true"
+		case false:
+			return "false"
+		}
+	case []byte:
+		return string(v)
+	case nil:
+		return "null"
+	case interface{ String() string }:
+		return strings.Replace(v.String(), ",", "_", -1)
+	}
+
+	return "<unknown_type>"
 }
 
 func (tags Tags) ForLogrus(merge logrus.Fields) logrus.Fields {
