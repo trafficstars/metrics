@@ -10,6 +10,7 @@ import (
 
 const (
 	maxConcurrency = 1024
+	prebakeMax = 65536
 )
 
 type Tag interface{}
@@ -52,13 +53,40 @@ func TagValueToBytes(vI Tag) []byte {
 	return unknownTypeBytes
 }*/
 
+var prebackedString [prebakeMax*2]string
+
+func init() {
+	for i:=-prebakeMax; i < prebakeMax; i++ {
+		prebackedString[i+prebakeMax] = strconv.FormatInt(int64(i), 10)
+	}
+}
+
+func getPrebakedString(v int32) string {
+	if v >= prebakeMax || -v <= -prebakeMax {
+		return ""
+	}
+	return prebackedString[v+prebakeMax]
+}
+
 func TagValueToString(vI Tag) string {
 	switch v := vI.(type) {
 	case int:
+		r := getPrebakedString(int32(v))
+		if len(r) != 0 {
+			return r
+		}
 		return strconv.FormatInt(int64(v), 10)
 	case uint64:
+		r := getPrebakedString(int32(v))
+		if len(r) != 0 {
+			return r
+		}
 		return strconv.FormatUint(v, 10)
 	case int64:
+		r := getPrebakedString(int32(v))
+		if len(r) != 0 {
+			return r
+		}
 		return strconv.FormatInt(v, 10)
 	case string:
 		return strings.Replace(v, ",", "_", -1)
