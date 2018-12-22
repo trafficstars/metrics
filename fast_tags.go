@@ -66,6 +66,14 @@ func (tags FastTags) IsSet(key string) bool {
 	return tags.findFast(key) != -1
 }
 
+func (tags FastTags) Get(key string) interface{} {
+	idx := tags.findFast(key)
+	if idx == -1 {
+		return nil
+	}
+	return tags[idx].Value
+}
+
 func (tags FastTags) Set(key string, value interface{}) {
 	idx := tags.findFast(key)
 	if idx != -1 {

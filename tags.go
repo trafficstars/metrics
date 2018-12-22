@@ -1,11 +1,9 @@
 package metrics
 
 import (
-	//"reflect"
 	"sort"
 	"strconv"
 	"strings"
-	//"unsafe"
 
 	"github.com/sirupsen/logrus"
 )
@@ -18,14 +16,6 @@ type Tag interface{}
 type Tags map[string]Tag
 
 /*
-func CastStringToBytes(str string) []byte {
-	hdr := *(*reflect.StringHeader)(unsafe.Pointer(&str))
-	return *(*[]byte)(unsafe.Pointer(&reflect.SliceHeader{
-		Data: hdr.Data,
-		Len:  hdr.Len,
-		Cap:  hdr.Len,
-	}))
-}
 
 var (
 	trueBytes        = []byte("true")
@@ -117,6 +107,9 @@ func (tags Tags) Keys() (result []string) {
 	return
 }
 
+func (tags Tags) Get(key string) interface{} {
+	return tags[key]
+}
 func (tags Tags) Set(key string, value interface{}) {
 	tags[key] = value
 }

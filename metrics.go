@@ -50,9 +50,19 @@ func (m *Metrics) GetSendInterval() time.Duration {
 }
 
 type preallocatedStringerBuffer struct {
-	sync.Mutex
-	tagKeys sort.StringSlice
+	locker  int32
 	result  bytes.Buffer
+	tagKeys sort.StringSlice
+}
+
+func (buf *preallocatedStringerBuffer) Lock() {
+	for !atomic.CompareAndSwapInt32(&buf.locker, 0, 1) {
+		runtime.Gosched()
+	}
+}
+
+func (buf *preallocatedStringerBuffer) Unlock() {
+	atomic.AddInt32(&buf.locker, -1)
 }
 
 type preallocatedGetterBuffer struct {
@@ -71,7 +81,8 @@ var (
 
 func init() {
 	for i := 0; i < maxConcurrency; i++ {
-		stringerBufs[i] = &preallocatedStringerBuffer{}
+		stringerBufs[i] = &preallocatedStringerBuffer{
+		}
 		/*getterBufs[i] = &preallocatedGetterBuffer{
 			pc: make([]uintptr, 8),
 		}*/
@@ -102,7 +113,7 @@ func init() {
 
 func (m *Metrics) get(metricType MetricType, key string, tags AnyTags) *Metric {
 	storageKeyBuf := generateStorageKey(metricType, key, tags)
-	rI, _ := m.storage.Get(storageKeyBuf.result.Bytes())
+	rI, _ := m.storage.GetByBytes(storageKeyBuf.result.Bytes())
 	storageKeyBuf.Unlock()
 	if rI == nil {
 		return nil
@@ -428,7 +439,28 @@ func generateStorageKey(metricType MetricType, key string, tags AnyTags) *preall
 			buf.result.Write(tag.Value)
 		}
 	default:
-		panic("not implemented")
+		buf.tagKeys = buf.tagKeys[:0]
+		inTags.Each(func(k string, v interface{}) bool {
+			if defaultTags.IsSet(k) {
+				return true
+			}
+			buf.tagKeys = append(buf.tagKeys, k)
+			return true
+		})
+		if len(buf.tagKeys) > 0 {
+			if len(buf.tagKeys) > 24 {
+				sort.Strings(buf.tagKeys) // It requires to wrap the slice into an interface, so it has a memory allocation
+			} else {
+				BubbleSort(buf.tagKeys)
+			}
+		}
+
+		for _, k := range buf.tagKeys {
+			buf.result.WriteString(`,`)
+			buf.result.WriteString(k)
+			buf.result.WriteString(`=`)
+			buf.result.WriteString(TagValueToString(inTags.Get(k)))
+		}
 	}
 
 	if len(metricType) > 0 {

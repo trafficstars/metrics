@@ -48,6 +48,29 @@ func BenchmarkList(b *testing.B) {
 	}
 }
 
+func BenchmarkGenerateStorageKey(b *testing.B) {
+	initDefaultTags()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			buf := generateStorageKey("", "test", nil)
+			if buf != nil {
+				buf.Unlock()
+			}
+		}
+	})
+}
+
+func BenchmarkGet(b *testing.B) {
+	initDefaultTags()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			Get("", "test", nil)
+		}
+	})
+}
+
 func BenchmarkRegistry(b *testing.B) {
 	initDefaultTags()
 	b.ResetTimer()
