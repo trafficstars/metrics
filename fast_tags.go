@@ -92,6 +92,6 @@ func (tags FastTags) Each(fn func(k string, v interface{}) bool) {
 	}
 }
 
-func (tags FastTags) ToFastTags() FastTags {
+func (tags *FastTags) ToFastTags() *FastTags {
 	return tags
 }

@@ -149,7 +149,7 @@ func (tags Tags) Each(fn func(k string, v interface{}) bool) {
 	}
 }
 
-func (tags Tags) ToFastTags() FastTags {
+func (tags Tags) ToFastTags() *FastTags {
 	keys := tags.Keys()
 	sort.Strings(keys)
 	r := make(FastTags, 0, len(keys))
@@ -160,5 +160,5 @@ func (tags Tags) ToFastTags() FastTags {
 			Value: TagValueToBytes(tags[k]),
 		})
 	}
-	return r
+	return &r
 }

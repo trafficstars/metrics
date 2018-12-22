@@ -428,8 +428,8 @@ func generateStorageKey(metricType MetricType, key string, tags AnyTags) *preall
 			buf.result.WriteString(`=`)
 			buf.result.WriteString(TagValueToString(inTags[k]))
 		}
-	case FastTags:
-		for _, tag := range inTags {
+	case *FastTags:
+		for _, tag := range *inTags {
 			if defaultTags.IsSet(tag.Key) {
 				continue
 			}
@@ -479,5 +479,5 @@ func init() {
 func Init(newMetricSender metricworker.MetricSender, newMetricsSendIntervaler MetricsSendIntervaler, newDefaultAnyTags AnyTags) {
 	metrics.SetSender(newMetricSender)
 	metrics.metricsSendIntervaler = newMetricsSendIntervaler
-	defaultTags = newDefaultAnyTags.ToFastTags()
+	defaultTags = *newDefaultAnyTags.ToFastTags()
 }

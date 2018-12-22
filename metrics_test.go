@@ -21,7 +21,7 @@ var (
 )
 
 func initDefaultTags() {
-	defaultTags = Tags{
+	defaultTags = *Tags{
 		"defaultTag0":       0,
 		"defaultTagString":  "string",
 		"defaultTagBool":    false,
@@ -143,7 +143,7 @@ func TestGC(t *testing.T) {
 }
 
 func TestRegistry(t *testing.T) {
-	defaultTags = Tags{
+	defaultTags = *Tags{
 		"datacenter": "EU",
 		"hostcode":   "999",
 		"hostname":   "e0df6242fcbf",
