@@ -179,7 +179,7 @@ func (m *Metrics) List() (result []*Metric) {
 
 func (m *Metrics) remove(metric *Metric) {
 	metric.Stop()
-	m.storage.Unset(metric.storageKey)
+	m.storage.LockUnset(metric.storageKey)
 }
 
 func (m *Metrics) GetSender() metricworker.MetricSender {
