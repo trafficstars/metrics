@@ -21,7 +21,7 @@ var (
 )
 
 func initDefaultTags() {
-	defaultTags = Tags{
+	defaultTags = *Tags{
 		"defaultTag0":       0,
 		"defaultTagString":  "string",
 		"defaultTagBool":    false,
@@ -46,6 +46,29 @@ func BenchmarkList(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		List()
 	}
+}
+
+func BenchmarkGenerateStorageKey(b *testing.B) {
+	initDefaultTags()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			buf := generateStorageKey("", "test", nil)
+			if buf != nil {
+				buf.Unlock()
+			}
+		}
+	})
+}
+
+func BenchmarkGet(b *testing.B) {
+	initDefaultTags()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			Get("", "test", nil)
+		}
+	})
 }
 
 func BenchmarkRegistry(b *testing.B) {
@@ -120,7 +143,7 @@ func TestGC(t *testing.T) {
 }
 
 func TestRegistry(t *testing.T) {
-	defaultTags = Tags{
+	defaultTags = *Tags{
 		"datacenter": "EU",
 		"hostcode":   "999",
 		"hostname":   "e0df6242fcbf",

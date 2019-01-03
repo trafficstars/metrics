@@ -1,30 +1,22 @@
 package metrics
 
 import (
-	"reflect"
 	"sort"
 	"strconv"
 	"strings"
-	"unsafe"
 
 	"github.com/sirupsen/logrus"
 )
 
 const (
 	maxConcurrency = 1024
+	prebakeMax = 65536
 )
 
 type Tag interface{}
 type Tags map[string]Tag
 
-func CastStringToBytes(str string) []byte {
-	hdr := *(*reflect.StringHeader)(unsafe.Pointer(&str))
-	return *(*[]byte)(unsafe.Pointer(&reflect.SliceHeader{
-		Data: hdr.Data,
-		Len:  hdr.Len,
-		Cap:  hdr.Len,
-	}))
-}
+/*
 
 var (
 	trueBytes        = []byte("true")
@@ -59,6 +51,61 @@ func TagValueToBytes(vI Tag) []byte {
 	}
 
 	return unknownTypeBytes
+}*/
+
+var prebackedString [prebakeMax*2]string
+
+func init() {
+	for i:=-prebakeMax; i < prebakeMax; i++ {
+		prebackedString[i+prebakeMax] = strconv.FormatInt(int64(i), 10)
+	}
+}
+
+func getPrebakedString(v int32) string {
+	if v >= prebakeMax || -v <= -prebakeMax {
+		return ""
+	}
+	return prebackedString[v+prebakeMax]
+}
+
+func TagValueToString(vI Tag) string {
+	switch v := vI.(type) {
+	case int:
+		r := getPrebakedString(int32(v))
+		if len(r) != 0 {
+			return r
+		}
+		return strconv.FormatInt(int64(v), 10)
+	case uint64:
+		r := getPrebakedString(int32(v))
+		if len(r) != 0 {
+			return r
+		}
+		return strconv.FormatUint(v, 10)
+	case int64:
+		r := getPrebakedString(int32(v))
+		if len(r) != 0 {
+			return r
+		}
+		return strconv.FormatInt(v, 10)
+	case string:
+		return strings.Replace(v, ",", "_", -1)
+	case bool:
+		switch v {
+		case true:
+			return "true"
+		case false:
+			return "false"
+		}
+	case []byte:
+		return string(v)
+	case nil:
+		return "null"
+	case interface{ String() string }:
+		return strings.Replace(v.String(), ",", "_", -1)
+	}
+
+	return "<unknown_type>"
 }
 
 func (tags Tags) ForLogrus(merge logrus.Fields) logrus.Fields {
@@ -88,6 +135,9 @@ func (tags Tags) Keys() (result []string) {
 	return
 }
 
+func (tags Tags) Get(key string) interface{} {
+	return tags[key]
+}
 func (tags Tags) Set(key string, value interface{}) {
 	tags[key] = value
 }
@@ -99,7 +149,7 @@ func (tags Tags) Each(fn func(k string, v interface{}) bool) {
 	}
 }
 
-func (tags Tags) ToFastTags() FastTags {
+func (tags Tags) ToFastTags() *FastTags {
 	keys := tags.Keys()
 	sort.Strings(keys)
 	r := make(FastTags, 0, len(keys))
@@ -110,5 +160,5 @@ func (tags Tags) ToFastTags() FastTags {
 			Value: TagValueToBytes(tags[k]),
 		})
 	}
-	return r
+	return &r
 }

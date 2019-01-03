@@ -9,6 +9,15 @@ type FastTag struct {
 	Value []byte
 }
 
+func TagValueToBytes(value Tag) []byte {
+	switch v := value.(type) {
+	case []byte:
+		return v
+	default:
+		return []byte(TagValueToString(value))
+	}
+}
+
 func (tag *FastTag) Set(value interface{}) {
 	tag.Value = TagValueToBytes(value)
 }
@@ -57,6 +66,14 @@ func (tags FastTags) IsSet(key string) bool {
 	return tags.findFast(key) != -1
 }
 
+func (tags FastTags) Get(key string) interface{} {
+	idx := tags.findFast(key)
+	if idx == -1 {
+		return nil
+	}
+	return tags[idx].Value
+}
+
 func (tags FastTags) Set(key string, value interface{}) {
 	idx := tags.findFast(key)
 	if idx != -1 {
@@ -75,6 +92,6 @@ func (tags FastTags) Each(fn func(k string, v interface{}) bool) {
 	}
 }
 
-func (tags FastTags) ToFastTags() FastTags {
+func (tags *FastTags) ToFastTags() *FastTags {
 	return tags
 }
