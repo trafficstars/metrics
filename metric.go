@@ -81,7 +81,7 @@ func (metric *Metric) marshalJSONTiming() ([]byte, error) {
 
 	nameJSON, _ := json.Marshal(metric.name)
 	descriptionJSON, _ := json.Marshal(metric.description)
-	tagsJSON := string(metric.storageKey[:strings.IndexByte(string(metric.storageKey), '@')])
+	tagsJSON, _ := json.Marshal(string(metric.storageKey[:strings.IndexByte(string(metric.storageKey), '@')]))
 	typeJSON, _ := json.Marshal(string(metric.worker.GetType()))
 
 	valueJSON := `{` + strings.Join(jsonValues, `,`) + `}`
@@ -99,7 +99,7 @@ func (metric *Metric) marshalJSONTiming() ([]byte, error) {
 func (metric *Metric) marshalJSONDefault() ([]byte, error) {
 	nameJSON, _ := json.Marshal(metric.name)
 	descriptionJSON, _ := json.Marshal(metric.description)
-	tagsJSON := string(metric.storageKey[:strings.IndexByte(string(metric.storageKey), '@')])
+	tagsJSON, _ := json.Marshal(string(metric.storageKey[:strings.IndexByte(string(metric.storageKey), '@')]))
 	typeJSON, _ := json.Marshal(string(metric.worker.GetType()))
 	value := metric.worker.Get()
 
