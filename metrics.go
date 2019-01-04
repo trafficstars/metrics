@@ -7,6 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/xaionaro-go/atomicmap"
 
@@ -40,6 +41,7 @@ type Metrics struct {
 	metricSender          metricworker.MetricSender
 	metricsSendIntervaler MetricsSendIntervaler
 	monitorState          uint64
+	hiddenTags            *[]string
 }
 
 func (m *Metrics) GetSendInterval() time.Duration {
@@ -81,8 +83,7 @@ var (
 
 func init() {
 	for i := 0; i < maxConcurrency; i++ {
-		stringerBufs[i] = &preallocatedStringerBuffer{
-		}
+		stringerBufs[i] = &preallocatedStringerBuffer{}
 		/*getterBufs[i] = &preallocatedGetterBuffer{
 			pc: make([]uintptr, 8),
 		}*/
@@ -426,7 +427,11 @@ func generateStorageKey(metricType MetricType, key string, tags AnyTags) *preall
 			buf.result.WriteString(`,`)
 			buf.result.WriteString(k)
 			buf.result.WriteString(`=`)
-			buf.result.WriteString(TagValueToString(inTags[k]))
+			if IsHiddenTag(k) {
+				buf.result.Write(hiddenTagValue)
+			} else {
+				buf.result.WriteString(TagValueToString(inTags[k]))
+			}
 		}
 	case *FastTags:
 		for _, tag := range *inTags {
@@ -436,7 +441,11 @@ func generateStorageKey(metricType MetricType, key string, tags AnyTags) *preall
 			buf.result.WriteString(`,`)
 			buf.result.WriteString(tag.Key)
 			buf.result.WriteString(`=`)
-			buf.result.Write(tag.Value)
+			if IsHiddenTag(tag.Key) {
+				buf.result.Write(hiddenTagValue)
+			} else {
+				buf.result.Write(tag.Value)
+			}
 		}
 	default:
 		buf.tagKeys = buf.tagKeys[:0]
@@ -459,7 +468,11 @@ func generateStorageKey(metricType MetricType, key string, tags AnyTags) *preall
 			buf.result.WriteString(`,`)
 			buf.result.WriteString(k)
 			buf.result.WriteString(`=`)
-			buf.result.WriteString(TagValueToString(inTags.Get(k)))
+			if IsHiddenTag(k) {
+				buf.result.Write(hiddenTagValue)
+			} else {
+				buf.result.WriteString(TagValueToString(inTags.Get(k)))
+			}
 		}
 	}
 
@@ -480,4 +493,50 @@ func Init(newMetricSender metricworker.MetricSender, newMetricsSendIntervaler Me
 	metrics.SetSender(newMetricSender)
 	metrics.metricsSendIntervaler = newMetricsSendIntervaler
 	defaultTags = *newDefaultAnyTags.ToFastTags()
+}
+
+func (m *Metrics) GetHiddenTags() []string {
+	result := atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.hiddenTags)))
+	if result == nil {
+		return nil
+	}
+	return *(*[]string)(result)
+}
+
+func (m *Metrics) SetHiddenTags(newHiddenTags []string) {
+	atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&m.hiddenTags)), (unsafe.Pointer)(&newHiddenTags))
+}
+
+func (m *Metrics) IsHiddenTag(tagKey string) bool {
+	hiddenTags := m.GetHiddenTags()
+	l := len(hiddenTags)
+	idx := sort.Search(l, func(i int) bool {
+		return hiddenTags[i] >= tagKey
+	})
+
+	if idx < 0 || idx >= l {
+		return false
+	}
+
+	if hiddenTags[idx] != tagKey {
+		return false
+	}
+
+	return true
+}
+
+func IsHiddenTag(tagKey string) bool {
+	return metrics.IsHiddenTag(tagKey)
+}
+
+func GetHiddenTags() []string {
+	return metrics.GetHiddenTags()
+}
+
+func SetHiddenTags(hiddenTags []string) {
+	if len(hiddenTags) == 0 {
+		hiddenTags = nil
+	}
+	sort.Strings(hiddenTags) // It's required to use binary search in IsHiddenTag()
+	metrics.SetHiddenTags(hiddenTags)
 }

@@ -10,8 +10,10 @@ import (
 
 const (
 	maxConcurrency = 1024
-	prebakeMax = 65536
+	prebakeMax     = 65536
 )
+
+var hiddenTagValue = []byte("hidden")
 
 type Tag interface{}
 type Tags map[string]Tag
@@ -53,10 +55,10 @@ func TagValueToBytes(vI Tag) []byte {
 	return unknownTypeBytes
 }*/
 
-var prebackedString [prebakeMax*2]string
+var prebackedString [prebakeMax * 2]string
 
 func init() {
-	for i:=-prebakeMax; i < prebakeMax; i++ {
+	for i := -prebakeMax; i < prebakeMax; i++ {
 		prebackedString[i+prebakeMax] = strconv.FormatInt(int64(i), 10)
 	}
 }

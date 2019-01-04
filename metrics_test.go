@@ -91,6 +91,19 @@ func BenchmarkRegistryReal(b *testing.B) {
 	})
 }
 
+func BenchmarkRegistryReal_withHiddenTag(b *testing.B) {
+	SetHiddenTags([]string{`success`})
+	initDefaultTags()
+	testTagsFast := testTags.ToFastTags()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			CreateOrGetWorkerGauge("test_key", testTagsFast)
+		}
+	})
+	SetHiddenTags(nil)
+}
+
 func BenchmarkRegistryReal_FastTags(b *testing.B) {
 	initDefaultTags()
 	testTagsFast := testTags.ToFastTags()
@@ -164,13 +177,24 @@ func TestRegistry(t *testing.T) {
 	tags1["key"] = "dsp.bid.tjnative"
 	CreateOrGetWorkerGauge(`requests`, tags1)
 
-	//assert.Equal(t, "dsp.bid", Get(MetricTypeGauge, `requests`, tags0).tags["key"])
-	//assert.Equal(t, "dsp.bid.tjnative", Get(MetricTypeGauge, `requests`, tags1).tags["key"])
+	assert.Equal(t, "dsp.bid", Get(MetricTypeGauge, `requests`, tags0).tags["key"])
+	assert.Equal(t, "dsp.bid.tjnative", Get(MetricTypeGauge, `requests`, tags1).tags["key"])
 }
 
 func TestTagsString(t *testing.T) {
 	initDefaultTags()
-	buf := generateStorageKey("", "testKey", testTags)
-	//assert.Equal(t, `testKey,defaultOneMoreTag=null,defaultTag0=0,defaultTagBool=false,defaultTagString=string,hello=world,server=idk,service=rotator,success=true,tag0=0,tag1=1,worker_id=-1`, buf.result.String())
-	buf.Unlock()
+	{
+		buf := generateStorageKey("", "testKey", testTags)
+		assert.Equal(t, `testKey,defaultOneMoreTag=null,defaultTag0=0,defaultTagBool=false,defaultTagString=string,hello=world,server=idk,service=rotator,success=true,tag0=0,tag1=1,worker_id=-1`, buf.result.String())
+		buf.Unlock()
+	}
+
+	{
+		SetHiddenTags([]string{`someHiddenTag`})
+		assert.Equal(t, `someHiddenTag`, GetHiddenTags()[0])
+
+		buf := generateStorageKey("", "testKey", Tags{"someHiddenTag": true})
+		assert.Equal(t, `testKey,defaultOneMoreTag=null,defaultTag0=0,defaultTagBool=false,defaultTagString=string,someHiddenTag=hidden`, buf.result.String())
+		buf.Unlock()
+	}
 }
