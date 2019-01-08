@@ -10,6 +10,12 @@ type Worker = metricworker.Worker
 type TimingValues = metricworker.TimingValues
 type TimingValue = metricworker.TimingValue
 
+type WorkerFloat interface {
+	Worker
+
+	GetFloat() float64
+}
+
 type WorkerGauge interface {
 	Worker
 
@@ -22,6 +28,10 @@ type WorkerGauge interface {
 
 type WorkerGaugeFunc interface {
 	Worker
+}
+
+type WorkerGaugeFloatFunc interface {
+	WorkerFloat
 }
 
 type WorkerCount interface {

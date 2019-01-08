@@ -46,6 +46,15 @@ func createWorkerGaugeFunc(key string, tags AnyTags, fn func() int64) (WorkerGau
 	return worker, runAndRegisterWorkerWrapper(key, worker, tags)
 }
 
+func createWorkerGaugeFloatFunc(key string, tags AnyTags, fn func() float64) (WorkerGaugeFloatFunc, error) {
+	keyBuf := generateStorageKey("", key, tags)
+	statsdKey := keyBuf.result.String()
+	keyBuf.Unlock()
+	worker := metricworker.NewWorkerGaugeFloatFunc(metrics.GetSender(), statsdKey, fn)
+	worker.SetGCEnabled(true)
+	return worker, runAndRegisterWorkerWrapper(key, worker, tags)
+}
+
 func createWorkerTiming(key string, tags AnyTags) (WorkerTiming, error) {
 	keyBuf := generateStorageKey("", key, tags)
 	statsdKey := keyBuf.result.String()
@@ -91,6 +100,19 @@ func CreateOrGetWorkerGaugeFuncWithError(key string, tags AnyTags, fn func() int
 
 func CreateOrGetWorkerGaugeFunc(key string, tags AnyTags, fn func() int64) WorkerGaugeFunc {
 	worker, _ := CreateOrGetWorkerGaugeFuncWithError(key, tags, fn)
+	return worker
+}
+
+func CreateOrGetWorkerGaugeFloatFuncWithError(key string, tags AnyTags, fn func() float64) (WorkerGaugeFloatFunc, error) {
+	m := Get(MetricTypeGauge, key, tags)
+	if m != nil {
+		return m.worker.(WorkerGaugeFloatFunc), nil
+	}
+	return createWorkerGaugeFloatFunc(key, tags, fn)
+}
+
+func CreateOrGetWorkerGaugeFloatFunc(key string, tags AnyTags, fn func() float64) WorkerGaugeFloatFunc {
+	worker, _ := CreateOrGetWorkerGaugeFloatFuncWithError(key, tags, fn)
 	return worker
 }
 
