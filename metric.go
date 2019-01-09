@@ -14,6 +14,9 @@ type Metric struct {
 	storageKey  []byte
 }
 
+func (metric *Metric) considerHiddenTags() {
+	considerHiddenTags(metric.tags)
+}
 func (metric *Metric) generateStorageKey() *preallocatedStringerBuffer {
 	return generateStorageKey(metric.worker.GetType(), metric.name, metric.tags)
 }

@@ -113,6 +113,7 @@ func init() {
 }*/
 
 func (m *Metrics) get(metricType MetricType, key string, tags AnyTags) *Metric {
+	considerHiddenTags(tags)
 	storageKeyBuf := generateStorageKey(metricType, key, tags)
 	rI, _ := m.storage.GetByBytes(storageKeyBuf.result.Bytes())
 	storageKeyBuf.Unlock()
@@ -346,6 +347,7 @@ func register(name string, worker Worker, description string, inTags AnyTags) er
 		description: description,
 	}
 
+	metric.considerHiddenTags()
 	storageKeyBuf := metric.generateStorageKey()
 	storageKey := storageKeyBuf.result.Bytes()
 	metric.storageKey = make([]byte, len(storageKey))
@@ -382,6 +384,31 @@ func BubbleSort(data sort.StringSlice) {
 			break
 		}
 		b = false
+	}
+}
+
+func considerHiddenTags(tags AnyTags) {
+	switch inTags := tags.(type) {
+	case nil:
+	case Tags:
+		for k, _ := range inTags {
+			if IsHiddenTag(k) {
+				inTags.Set(k, hiddenTagValue)
+			}
+		}
+	case *FastTags:
+		for _, tag := range *inTags {
+			if IsHiddenTag(tag.Key) {
+				tag.Value = hiddenTagValue
+			}
+		}
+	default:
+		inTags.Each(func(k string, v interface{}) bool {
+			if IsHiddenTag(k) {
+				inTags.Set(k, hiddenTagValue)
+			}
+			return true
+		})
 	}
 }
 
@@ -427,11 +454,7 @@ func generateStorageKey(metricType MetricType, key string, tags AnyTags) *preall
 			buf.result.WriteString(`,`)
 			buf.result.WriteString(k)
 			buf.result.WriteString(`=`)
-			if IsHiddenTag(k) {
-				buf.result.Write(hiddenTagValue)
-			} else {
-				buf.result.WriteString(TagValueToString(inTags[k]))
-			}
+			buf.result.WriteString(TagValueToString(inTags[k]))
 		}
 	case *FastTags:
 		for _, tag := range *inTags {
@@ -441,11 +464,7 @@ func generateStorageKey(metricType MetricType, key string, tags AnyTags) *preall
 			buf.result.WriteString(`,`)
 			buf.result.WriteString(tag.Key)
 			buf.result.WriteString(`=`)
-			if IsHiddenTag(tag.Key) {
-				buf.result.Write(hiddenTagValue)
-			} else {
-				buf.result.Write(tag.Value)
-			}
+			buf.result.Write(tag.Value)
 		}
 	default:
 		buf.tagKeys = buf.tagKeys[:0]
@@ -468,11 +487,7 @@ func generateStorageKey(metricType MetricType, key string, tags AnyTags) *preall
 			buf.result.WriteString(`,`)
 			buf.result.WriteString(k)
 			buf.result.WriteString(`=`)
-			if IsHiddenTag(k) {
-				buf.result.Write(hiddenTagValue)
-			} else {
-				buf.result.WriteString(TagValueToString(inTags.Get(k)))
-			}
+			buf.result.WriteString(TagValueToString(inTags.Get(k)))
 		}
 	}
 

@@ -190,11 +190,13 @@ func TestTagsString(t *testing.T) {
 	}
 
 	{
-		SetHiddenTags([]string{`someHiddenTag`})
-		assert.Equal(t, `someHiddenTag`, GetHiddenTags()[0])
+		SetHiddenTags([]string{`app_id`, `spot`, `spot_id`, `app`})
+		assert.Equal(t, `app`, GetHiddenTags()[0])
 
-		buf := generateStorageKey("", "testKey", Tags{"someHiddenTag": true})
-		assert.Equal(t, `testKey,defaultOneMoreTag=null,defaultTag0=0,defaultTagBool=false,defaultTagString=string,someHiddenTag=hidden`, buf.result.String())
+		tags := Tags{"spot": true}
+		considerHiddenTags(tags)
+		buf := generateStorageKey("", "testKey", tags)
+		assert.Equal(t, `testKey,defaultOneMoreTag=null,defaultTag0=0,defaultTagBool=false,defaultTagString=string,spot=hidden`, buf.result.String())
 		buf.Unlock()
 	}
 }
