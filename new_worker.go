@@ -1,7 +1,7 @@
 package metrics
 
 import (
-	log "github.com/sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 
 	"github.com/trafficstars/fastmetrics/worker"
 )
