@@ -99,6 +99,19 @@ func CreateOrGetWorkerGauge(key string, tags AnyTags) WorkerGauge {
 	return worker
 }
 
+func CreateOrGetWorkerGaugeFloatWithError(key string, tags AnyTags) (WorkerGaugeFloat, error) {
+	m := Get(MetricTypeGauge, key, tags)
+	if m != nil {
+		return m.worker.(WorkerGaugeFloat), nil
+	}
+	return createWorkerGaugeFloat(key, tags)
+}
+
+func CreateOrGetWorkerGaugeFloat(key string, tags AnyTags) WorkerGaugeFloat {
+	worker, _ := CreateOrGetWorkerGaugeFloatWithError(key, tags)
+	return worker
+}
+
 func CreateOrGetWorkerGaugeFuncWithError(key string, tags AnyTags, fn func() int64) (WorkerGaugeFunc, error) {
 	m := Get(MetricTypeGauge, key, tags)
 	if m != nil {
