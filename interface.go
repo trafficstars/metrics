@@ -6,6 +6,7 @@ import (
 	"github.com/trafficstars/fastmetrics/worker"
 )
 
+type AtomicFloat64 = metricworker.AtomicFloat64
 type Worker = metricworker.Worker
 type TimingValues = metricworker.TimingValues
 type TimingValue = metricworker.TimingValue
@@ -24,6 +25,13 @@ type WorkerGauge interface {
 	Add(delta int64) int64
 	Set(newValue int64)
 	SetValuePointer(newValuePtr *int64)
+}
+
+type WorkerGaugeFloat interface {
+	WorkerFloat
+
+	Set(newValue float64)
+	SetValuePointer(newValuePtr *AtomicFloat64)
 }
 
 type WorkerGaugeFunc interface {
