@@ -34,6 +34,12 @@ type WorkerGaugeFloat interface {
 	SetValuePointer(newValuePtr *AtomicFloat64)
 }
 
+type WorkerGaugeFloatAggregative interface {
+	WorkerFloat
+
+	ConsiderValue(float64)
+}
+
 type WorkerGaugeFunc interface {
 	Worker
 }

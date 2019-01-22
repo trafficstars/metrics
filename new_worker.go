@@ -46,6 +46,15 @@ func createWorkerGaugeFloat(key string, tags AnyTags) (WorkerGaugeFloat, error) 
 	return worker, runAndRegisterWorkerWrapper(key, worker, tags)
 }
 
+func createWorkerGaugeFloatAggregative(key string, tags AnyTags) (WorkerGaugeFloatAggregative, error) {
+	keyBuf := generateStorageKey("", key, tags)
+	statsdKey := keyBuf.result.String()
+	keyBuf.Unlock()
+	worker := metricworker.NewWorkerGaugeFloatAggregative(metrics.GetSender(), statsdKey)
+	worker.SetGCEnabled(true)
+	return worker, runAndRegisterWorkerWrapper(key, worker, tags)
+}
+
 func createWorkerGaugeFunc(key string, tags AnyTags, fn func() int64) (WorkerGaugeFunc, error) {
 	keyBuf := generateStorageKey("", key, tags)
 	statsdKey := keyBuf.result.String()
