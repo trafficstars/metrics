@@ -10,6 +10,8 @@ type AtomicFloat64 = metricworker.AtomicFloat64
 type Worker = metricworker.Worker
 type TimingValues = metricworker.TimingValues
 type TimingValue = metricworker.TimingValue
+type GaugeFloatAggregativeValues = metricworker.GaugeFloatAggregativeValues
+type GaugeFloatAggregativeValue = metricworker.GaugeFloatAggregativeValue
 
 type WorkerFloat interface {
 	Worker
@@ -38,6 +40,7 @@ type WorkerGaugeFloatAggregative interface {
 	WorkerFloat
 
 	ConsiderValue(float64)
+	GetValuePointers() *GaugeFloatAggregativeValues
 }
 
 type WorkerGaugeFunc interface {
