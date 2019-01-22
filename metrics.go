@@ -55,7 +55,7 @@ func (m *Metrics) SetDisabled(newIsDisabled bool) bool {
 }
 
 func SetDisabled(newIsDisabled bool) bool {
-	metrics.SetDisabled(newIsDisabled)
+	return metrics.SetDisabled(newIsDisabled)
 }
 
 func (m *Metrics) IsDisabled() bool {
