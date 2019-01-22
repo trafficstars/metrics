@@ -61,6 +61,9 @@ func (w *workerGauge) GetType() MetricType {
 }
 
 func (w *workerGauge) Increment() int64 {
+	if w == nil {
+		return 0
+	}
 	return atomic.AddInt64(w.valuePtr, 1)
 }
 
