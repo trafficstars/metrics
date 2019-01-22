@@ -12,6 +12,27 @@ var (
 	ErrDisabled = errors.New(`metrics are disabled`)
 )
 
+var (
+	dummyWorkerCount = metricworker.NewWorkerCount(nil, ``)
+	dummyWorkerGauge = metricworker.NewWorkerGauge(nil, ``)
+	dummyWorkerGaugeFloat = metricworker.NewWorkerGaugeFloat(nil, ``)
+	dummyWorkerGaugeFloatAggregative = metricworker.NewWorkerGaugeFloatAggregative(nil, ``)
+	dummyWorkerGaugeFunc = metricworker.NewWorkerGaugeFunc(nil, ``, nil)
+	dummyWorkerGaugeFloatFunc = metricworker.NewWorkerGaugeFloatFunc(nil, ``, nil)
+	dummyWorkerTiming = metricworker.NewWorkerTiming(nil, ``)
+)
+
+func init() {
+	// Dropping the pointers to "nil" to improve performance
+	dummyWorkerCount = nil
+	dummyWorkerGauge = nil
+	dummyWorkerGaugeFloat = nil
+	dummyWorkerGaugeFloatAggregative = nil
+	dummyWorkerGaugeFunc = nil
+	dummyWorkerGaugeFloatFunc = nil
+	dummyWorkerTiming = nil
+}
+
 func runAndRegisterWorkerWrapper(key string, worker Worker, tags AnyTags) error {
 	err := runAndRegister(key, worker, tags)
 	if err != nil {
@@ -27,7 +48,7 @@ func runAndRegisterWorkerWrapper(key string, worker Worker, tags AnyTags) error 
 
 func createWorkerCount(key string, tags AnyTags) (WorkerCount, error) {
 	if metrics.IsDisabled() {
-		return nil, ErrDisabled
+		return dummyWorkerCount, ErrDisabled
 	}
 	keyBuf := generateStorageKey("", key, tags)
 	statsdKey := keyBuf.result.String()
@@ -39,7 +60,7 @@ func createWorkerCount(key string, tags AnyTags) (WorkerCount, error) {
 
 func createWorkerGauge(key string, tags AnyTags) (WorkerGauge, error) {
 	if metrics.IsDisabled() {
-		return nil, ErrDisabled
+		return dummyWorkerGauge, ErrDisabled
 	}
 	keyBuf := generateStorageKey("", key, tags)
 	statsdKey := keyBuf.result.String()
@@ -51,7 +72,7 @@ func createWorkerGauge(key string, tags AnyTags) (WorkerGauge, error) {
 
 func createWorkerGaugeFloat(key string, tags AnyTags) (WorkerGaugeFloat, error) {
 	if metrics.IsDisabled() {
-		return nil, ErrDisabled
+		return dummyWorkerGaugeFloat, ErrDisabled
 	}
 	keyBuf := generateStorageKey("", key, tags)
 	statsdKey := keyBuf.result.String()
@@ -63,7 +84,7 @@ func createWorkerGaugeFloat(key string, tags AnyTags) (WorkerGaugeFloat, error) 
 
 func createWorkerGaugeFloatAggregative(key string, tags AnyTags) (WorkerGaugeFloatAggregative, error) {
 	if metrics.IsDisabled() {
-		return nil, ErrDisabled
+		return dummyWorkerGaugeFloatAggregative, ErrDisabled
 	}
 	keyBuf := generateStorageKey("", key, tags)
 	statsdKey := keyBuf.result.String()
@@ -75,7 +96,7 @@ func createWorkerGaugeFloatAggregative(key string, tags AnyTags) (WorkerGaugeFlo
 
 func createWorkerGaugeFunc(key string, tags AnyTags, fn func() int64) (WorkerGaugeFunc, error) {
 	if metrics.IsDisabled() {
-		return nil, ErrDisabled
+		return dummyWorkerGaugeFunc, ErrDisabled
 	}
 	keyBuf := generateStorageKey("", key, tags)
 	statsdKey := keyBuf.result.String()
@@ -87,7 +108,7 @@ func createWorkerGaugeFunc(key string, tags AnyTags, fn func() int64) (WorkerGau
 
 func createWorkerGaugeFloatFunc(key string, tags AnyTags, fn func() float64) (WorkerGaugeFloatFunc, error) {
 	if metrics.IsDisabled() {
-		return nil, ErrDisabled
+		return dummyWorkerGaugeFloatFunc, ErrDisabled
 	}
 	keyBuf := generateStorageKey("", key, tags)
 	statsdKey := keyBuf.result.String()
@@ -99,7 +120,7 @@ func createWorkerGaugeFloatFunc(key string, tags AnyTags, fn func() float64) (Wo
 
 func createWorkerTiming(key string, tags AnyTags) (WorkerTiming, error) {
 	if metrics.IsDisabled() {
-		return nil, ErrDisabled
+		return dummyWorkerTiming, ErrDisabled
 	}
 	keyBuf := generateStorageKey("", key, tags)
 	statsdKey := keyBuf.result.String()
