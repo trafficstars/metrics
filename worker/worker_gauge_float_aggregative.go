@@ -89,6 +89,9 @@ func NewWorkerGaugeFloatAggregative(sender MetricSender, metricsKey string) *wor
 }
 
 func (w *workerGaugeFloatAggregative) SetGCEnabled(enabled bool) {
+	if w == nil {
+		return
+	}
 	if enabled {
 		atomic.StoreUint64(&w.isGCEnabled, 1)
 	} else {
@@ -97,10 +100,16 @@ func (w *workerGaugeFloatAggregative) SetGCEnabled(enabled bool) {
 }
 
 func (w *workerGaugeFloatAggregative) IsGCEnabled() bool {
+	if w == nil {
+		return false
+	}
 	return atomic.LoadUint64(&w.isGCEnabled) > 0
 }
 
 func (w *workerGaugeFloatAggregative) IsRunning() bool {
+	if w == nil {
+		return false
+	}
 	return atomic.LoadUint64(&w.running) > 0
 }
 
@@ -133,6 +142,9 @@ func guessPercentileFloat(curValue, newValue float64, count uint64, perc float32
 }
 
 func (v *GaugeFloatAggregativeValue) RLockDo(fn func(*GaugeFloatAggregativeValue)) {
+	if v == nil {
+		return
+	}
 	data := (*GaugeFloatAggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&v))))
 	if data == nil {
 		return
@@ -143,6 +155,9 @@ func (v *GaugeFloatAggregativeValue) RLockDo(fn func(*GaugeFloatAggregativeValue
 }
 
 func (v *GaugeFloatAggregativeValue) LockDo(fn func(*GaugeFloatAggregativeValue)) {
+	if v == nil {
+		return
+	}
 	data := (*GaugeFloatAggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&v))))
 	if data == nil {
 		return
@@ -153,6 +168,9 @@ func (v *GaugeFloatAggregativeValue) LockDo(fn func(*GaugeFloatAggregativeValue)
 }
 
 func (w *workerGaugeFloatAggregative) ConsiderValue(v float64) {
+	if w == nil {
+		return
+	}
 	appendData := func(data *GaugeFloatAggregativeValue) {
 		if v < data.Min || data.Count == 0 {
 			data.Min = v
@@ -192,18 +210,30 @@ func (w *workerGaugeFloatAggregative) ConsiderValue(v float64) {
 }
 
 func (w *workerGaugeFloatAggregative) GetFloat() float64 {
+	if w == nil {
+		return 0
+	}
 	return w.value.S1.Avg
 }
 
 func (w *workerGaugeFloatAggregative) Get() int64 {
+	if w == nil {
+		return 0
+	}
 	return int64(w.GetFloat())
 }
 
 func (w *workerGaugeFloatAggregative) GetValuePointers() *GaugeFloatAggregativeValues {
+	if w == nil {
+		return &GaugeFloatAggregativeValues{}
+	}
 	return &w.value
 }
 
 func (w *workerGaugeFloatAggregative) GetKey() string {
+	if w == nil {
+		return ``
+	}
 	return w.metricsKey
 }
 
@@ -383,6 +413,9 @@ func (w *workerGaugeFloatAggregative) doSend(interval time.Duration) {
 }
 
 func (w *workerGaugeFloatAggregative) Run(interval time.Duration) {
+	if w == nil {
+		return
+	}
 	w.Lock()
 	if w.IsRunning() {
 		w.Unlock()
@@ -405,6 +438,9 @@ func (w *workerGaugeFloatAggregative) Run(interval time.Duration) {
 }
 
 func (w *workerGaugeFloatAggregative) Stop() {
+	if w == nil {
+		return
+	}
 	if !w.IsRunning() {
 		return
 	}

@@ -99,6 +99,9 @@ func NewWorkerTiming(sender MetricSender, metricsKey string) *workerTiming {
 }
 
 func (w *workerTiming) SetGCEnabled(enabled bool) {
+	if w == nil {
+		return
+	}
 	if enabled {
 		atomic.StoreUint64(&w.isGCEnabled, 1)
 	} else {
@@ -107,10 +110,16 @@ func (w *workerTiming) SetGCEnabled(enabled bool) {
 }
 
 func (w *workerTiming) IsGCEnabled() bool {
+	if w == nil {
+		return false
+	}
 	return atomic.LoadUint64(&w.isGCEnabled) > 0
 }
 
 func (w *workerTiming) IsRunning() bool {
+	if w == nil {
+		return false
+	}
 	return atomic.LoadUint64(&w.running) > 0
 }
 
@@ -144,6 +153,9 @@ func guessPercentile(curValue uint64, newValue, count uint64, perc float32) uint
 }
 
 func (v *TimingValue) RLockDo(fn func(*TimingValue)) {
+	if v == nil {
+		return
+	}
 	data := (*TimingValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&v))))
 	if data == nil {
 		return
@@ -154,6 +166,9 @@ func (v *TimingValue) RLockDo(fn func(*TimingValue)) {
 }
 
 func (v *TimingValue) LockDo(fn func(*TimingValue)) {
+	if v == nil {
+		return
+	}
 	data := (*TimingValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&v))))
 	if data == nil {
 		return
@@ -164,6 +179,9 @@ func (v *TimingValue) LockDo(fn func(*TimingValue)) {
 }
 
 func (w *workerTiming) ConsiderValue(d time.Duration) {
+	if w == nil {
+		return
+	}
 	v := uint64(d.Nanoseconds())
 
 	appendData := func(data *TimingValue) {
@@ -205,14 +223,23 @@ func (w *workerTiming) ConsiderValue(d time.Duration) {
 }
 
 func (w *workerTiming) Get() int64 {
+	if w == nil {
+		return 0
+	}
 	return int64(atomic.LoadUint64(&w.value.S1.Avg))
 }
 
 func (w *workerTiming) GetValuePointers() *TimingValues {
+	if w == nil {
+		return &TimingValues{}
+	}
 	return &w.value
 }
 
 func (w *workerTiming) GetKey() string {
+	if w == nil {
+		return ``
+	}
 	return w.metricsKey
 }
 
@@ -392,6 +419,9 @@ func (w *workerTiming) doSend(interval time.Duration) {
 }
 
 func (w *workerTiming) Run(interval time.Duration) {
+	if w == nil {
+		return
+	}
 	w.Lock()
 	if w.IsRunning() {
 		w.Unlock()
@@ -414,6 +444,9 @@ func (w *workerTiming) Run(interval time.Duration) {
 }
 
 func (w *workerTiming) Stop() {
+	if w == nil {
+		return
+	}
 	if !w.IsRunning() {
 		return
 	}

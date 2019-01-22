@@ -33,6 +33,9 @@ func NewWorkerGaugeFloatFunc(sender MetricSender, metricsKey string, fn func() f
 }
 
 func (w *workerGaugeFloatFunc) SetGCEnabled(enabled bool) {
+	if w == nil {
+		return
+	}
 	if enabled {
 		atomic.StoreUint64(&w.isGCEnabled, 1)
 	} else {
@@ -41,10 +44,16 @@ func (w *workerGaugeFloatFunc) SetGCEnabled(enabled bool) {
 }
 
 func (w *workerGaugeFloatFunc) IsGCEnabled() bool {
+	if w == nil {
+		return false
+	}
 	return atomic.LoadUint64(&w.isGCEnabled) > 0
 }
 
 func (w *workerGaugeFloatFunc) IsRunning() bool {
+	if w == nil {
+		return false
+	}
 	return atomic.LoadUint64(&w.running) > 0
 }
 
@@ -53,14 +62,23 @@ func (w *workerGaugeFloatFunc) GetType() MetricType {
 }
 
 func (w *workerGaugeFloatFunc) Get() int64 {
+	if w == nil {
+		return 0
+	}
 	return int64(w.fn())
 }
 
 func (w *workerGaugeFloatFunc) GetFloat() float64 {
+	if w == nil {
+		return 0
+	}
 	return w.fn()
 }
 
 func (w *workerGaugeFloatFunc) GetKey() string {
+	if w == nil {
+		return ``
+	}
 	return w.metricsKey
 }
 
@@ -88,6 +106,9 @@ func (w *workerGaugeFloatFunc) doSend() {
 }
 
 func (w *workerGaugeFloatFunc) Run(interval time.Duration) {
+	if w == nil {
+		return
+	}
 	w.Lock()
 	defer w.Unlock()
 	if w.IsRunning() {
@@ -103,6 +124,9 @@ func (w *workerGaugeFloatFunc) Run(interval time.Duration) {
 }
 
 func (w *workerGaugeFloatFunc) Stop() {
+	if w == nil {
+		return
+	}
 	if !w.IsRunning() {
 		return
 	}

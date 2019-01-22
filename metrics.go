@@ -36,12 +36,34 @@ type MetricsSendIntervaler interface {
 }
 
 type Metrics struct {
-	storage atomicmap.Map
+	storage    atomicmap.Map
+	isDisabled uint64
 	//getterCache           atomicmap.Map
 	metricSender          metricworker.MetricSender
 	metricsSendIntervaler MetricsSendIntervaler
 	monitorState          uint64
 	hiddenTags            *[]string
+}
+
+func (m *Metrics) SetDisabled(newIsDisabled bool) bool {
+	newValue := uint64(0)
+	if newIsDisabled {
+		newValue = 1
+	}
+
+	return atomic.SwapUint64(&m.isDisabled, newValue) != 0
+}
+
+func SetDisabled(newIsDisabled bool) bool {
+	metrics.SetDisabled(newIsDisabled)
+}
+
+func (m *Metrics) IsDisabled() bool {
+	return atomic.LoadUint64(&m.isDisabled) != 0
+}
+
+func IsDisabled() bool {
+	return metrics.IsDisabled()
 }
 
 func (m *Metrics) GetSendInterval() time.Duration {
@@ -146,6 +168,9 @@ func (m *Metrics) get(metricType MetricType, key string, tags AnyTags) *Metric {
 }*/
 
 func (m *Metrics) Get(metricType MetricType, key string, tags AnyTags) *Metric {
+	if m.IsDisabled() {
+		return nil
+	}
 	return m.get(metricType, key, tags)
 	//return m.getWithCache(metricType, key, tags)
 }

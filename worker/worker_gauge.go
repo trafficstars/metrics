@@ -1,7 +1,6 @@
 package metricworker
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -26,13 +25,16 @@ func NewWorkerGauge(sender MetricSender, metricsKey string) *workerGauge {
 	w := &workerGauge{}
 	w.id = atomic.AddInt64(&workersCount, 1)
 	w.sender = sender
-	w.metricsKey = fmt.Sprintf("%s,worker_id=%d", metricsKey, w.id)
+	w.metricsKey = metricsKey
 	w.valuePtr = &[]int64{0}[0]
 	//w.stopChan = make(chan bool)
 	return w
 }
 
 func (w *workerGauge) SetGCEnabled(enabled bool) {
+	if w == nil {
+		return
+	}
 	if enabled {
 		atomic.StoreUint64(&w.isGCEnabled, 1)
 	} else {
@@ -41,10 +43,16 @@ func (w *workerGauge) SetGCEnabled(enabled bool) {
 }
 
 func (w *workerGauge) IsGCEnabled() bool {
+	if w == nil {
+		return false
+	}
 	return atomic.LoadUint64(&w.isGCEnabled) > 0
 }
 
 func (w *workerGauge) IsRunning() bool {
+	if w == nil {
+		return false
+	}
 	return atomic.LoadUint64(&w.running) > 0
 }
 
@@ -57,26 +65,44 @@ func (w *workerGauge) Increment() int64 {
 }
 
 func (w *workerGauge) Decrement() int64 {
+	if w == nil {
+		return 0
+	}
 	return atomic.AddInt64(w.valuePtr, -1)
 }
 
 func (w *workerGauge) Add(delta int64) int64 {
+	if w == nil {
+		return 0
+	}
 	return atomic.AddInt64(w.valuePtr, delta)
 }
 
 func (w *workerGauge) Set(newValue int64) {
+	if w == nil {
+		return
+	}
 	atomic.StoreInt64(w.valuePtr, newValue)
 }
 
 func (w *workerGauge) Get() int64 {
+	if w == nil {
+		return 0
+	}
 	return atomic.LoadInt64(w.valuePtr)
 }
 
 func (w *workerGauge) GetKey() string {
+	if w == nil {
+		return ``
+	}
 	return w.metricsKey
 }
 
 func (w *workerGauge) SetValuePointer(newValuePtr *int64) {
+	if w == nil {
+		return
+	}
 	w.valuePtr = newValuePtr
 }
 
@@ -104,6 +130,9 @@ func (w *workerGauge) doSend() {
 }
 
 func (w *workerGauge) Run(interval time.Duration) {
+	if w == nil {
+		return
+	}
 	w.Lock()
 	defer w.Unlock()
 	if w.IsRunning() {
@@ -119,6 +148,9 @@ func (w *workerGauge) Run(interval time.Duration) {
 }
 
 func (w *workerGauge) Stop() {
+	if w == nil {
+		return
+	}
 	if !w.IsRunning() {
 		return
 	}

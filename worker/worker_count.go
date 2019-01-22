@@ -1,7 +1,6 @@
 package metricworker
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -27,7 +26,7 @@ func NewWorkerCount(sender MetricSender, metricsKey string) *workerCount {
 	w := &workerCount{}
 	w.id = atomic.AddInt64(&workersCount, 1)
 	w.sender = sender
-	w.metricsKey = fmt.Sprintf("%s,worker_id=%d", metricsKey, w.id)
+	w.metricsKey = metricsKey
 	w.valuePtr = &[]uint64{0}[0]
 	//w.stopChan = make(chan bool)
 	return w
@@ -38,10 +37,16 @@ func (w *workerCount) GetType() MetricType {
 }
 
 func (w *workerCount) IsRunning() bool {
+	if w == nil {
+		return false
+	}
 	return atomic.LoadUint64(&w.running) > 0
 }
 
 func (w *workerCount) SetGCEnabled(enabled bool) {
+	if w == nil {
+		return
+	}
 	if enabled {
 		atomic.StoreUint64(&w.isGCEnabled, 1)
 	} else {
@@ -50,10 +55,16 @@ func (w *workerCount) SetGCEnabled(enabled bool) {
 }
 
 func (w *workerCount) IsGCEnabled() bool {
+	if w == nil {
+		return false
+	}
 	return atomic.LoadUint64(&w.isGCEnabled) > 0
 }
 
 func (w *workerCount) Increment() uint64 {
+	if w == nil {
+		return 0
+	}
 	return atomic.AddUint64(w.valuePtr, 1)
 }
 
@@ -62,28 +73,46 @@ func (w *workerCount) Add(delta uint64) uint64 {
 }
 
 func (w *workerCount) Set(newValue uint64) {
+	if w == nil {
+		return
+	}
 	atomic.StoreUint64(w.valuePtr, newValue)
 }
 
 func (w *workerCount) Get() int64 {
+	if w == nil {
+		return 0
+	}
 	return int64(w.GetValue())
 }
 
 func (w *workerCount) GetDifferenceFlush() uint64 {
+	if w == nil {
+		return 0
+	}
 	newValue := w.GetValue()
 	previousValue := atomic.SwapUint64(&w.previousValue, newValue)
 	return newValue - previousValue
 }
 
 func (w *workerCount) GetValue() uint64 {
+	if w == nil {
+		return 0
+	}
 	return atomic.LoadUint64(w.valuePtr)
 }
 
 func (w *workerCount) GetKey() string {
+	if w == nil {
+		return ``
+	}
 	return w.metricsKey
 }
 
 func (w *workerCount) SetValuePointer(newValuePtr *uint64) {
+	if w == nil {
+		return
+	}
 	w.valuePtr = newValuePtr
 }
 
@@ -111,6 +140,9 @@ func (w *workerCount) doSend() {
 }
 
 func (w *workerCount) Run(interval time.Duration) {
+	if w == nil {
+		return
+	}
 	w.Lock()
 	defer w.Unlock()
 	if w.IsRunning() {

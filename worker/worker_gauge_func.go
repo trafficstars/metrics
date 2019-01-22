@@ -33,6 +33,9 @@ func NewWorkerGaugeFunc(sender MetricSender, metricsKey string, fn func() int64)
 }
 
 func (w *workerGaugeFunc) SetGCEnabled(enabled bool) {
+	if w == nil {
+		return
+	}
 	if enabled {
 		atomic.StoreUint64(&w.isGCEnabled, 1)
 	} else {
@@ -41,10 +44,16 @@ func (w *workerGaugeFunc) SetGCEnabled(enabled bool) {
 }
 
 func (w *workerGaugeFunc) IsGCEnabled() bool {
+	if w == nil {
+		return false
+	}
 	return atomic.LoadUint64(&w.isGCEnabled) > 0
 }
 
 func (w *workerGaugeFunc) IsRunning() bool {
+	if w == nil {
+		return false
+	}
 	return atomic.LoadUint64(&w.running) > 0
 }
 
@@ -53,10 +62,16 @@ func (w *workerGaugeFunc) GetType() MetricType {
 }
 
 func (w *workerGaugeFunc) Get() int64 {
+	if w == nil {
+		return 0
+	}
 	return w.fn()
 }
 
 func (w *workerGaugeFunc) GetKey() string {
+	if w == nil {
+		return ``
+	}
 	return w.metricsKey
 }
 
@@ -84,6 +99,9 @@ func (w *workerGaugeFunc) doSend() {
 }
 
 func (w *workerGaugeFunc) Run(interval time.Duration) {
+	if w == nil {
+		return
+	}
 	w.Lock()
 	defer w.Unlock()
 	if w.IsRunning() {
@@ -99,6 +117,9 @@ func (w *workerGaugeFunc) Run(interval time.Duration) {
 }
 
 func (w *workerGaugeFunc) Stop() {
+	if w == nil {
+		return
+	}
 	if !w.IsRunning() {
 		return
 	}
