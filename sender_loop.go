@@ -1,4 +1,4 @@
-package metricworker
+package metrics
 
 import (
 	"sync"

@@ -1,45 +1,46 @@
 package metrics
 
 import (
-	"runtime"
-	"testing"
+	`runtime`
+	`sync/atomic`
+	`testing`
 
-	"github.com/stretchr/testify/assert"
+	`github.com/stretchr/testify/assert`
 )
 
 var (
 	testTags = Tags{
-		"tag0":           0,
-		"tag1":           1,
-		"success":        true,
-		"hello":          "world",
-		"service":        "rotator",
-		"server":         "idk",
-		"worker_id":      -1,
-		"defaultTagBool": true,
+		`tag0`:           0,
+		`tag1`:           1,
+		`success`:        true,
+		`hello`:          `world`,
+		`service`:        `rotator`,
+		`server`:         `idk`,
+		`worker_id`:      -1,
+		`defaultTagBool`: true,
 	}
 )
 
 func initDefaultTags() {
 	defaultTags = *Tags{
-		"defaultTag0":       0,
-		"defaultTagString":  "string",
-		"defaultTagBool":    false,
-		"defaultOneMoreTag": nil,
+		`defaultTag0`:       0,
+		`defaultTagString`:  `string`,
+		`defaultTagBool`:    false,
+		`defaultOneMoreTag`: nil,
 	}.ToFastTags()
 }
 
 func BenchmarkList(b *testing.B) {
 	initDefaultTags()
 	tags := Tags{
-		"tag0":       0,
-		"tagString":  "string",
-		"tagBool":    false,
-		"oneMoreTag": nil,
+		`tag0`:       0,
+		`tagString`:  `string`,
+		`tagBool`:    false,
+		`oneMoreTag`: nil,
 	}
 	for i := 0; i < 10000; i++ {
-		tags["value"] = i
-		CreateOrGetWorkerGauge(`test_metric`, tags)
+		tags[`value`] = i
+		GaugeInt64(`test_metric`, tags)
 	}
 
 	b.ResetTimer()
@@ -53,7 +54,7 @@ func BenchmarkGenerateStorageKey(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			buf := generateStorageKey("", "test", nil)
+			buf := generateStorageKey(TypeCount, `test`, nil)
 			if buf != nil {
 				buf.Unlock()
 			}
@@ -66,7 +67,7 @@ func BenchmarkGet(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			Get("", "test", nil)
+			Get(TypeCount, `test`, nil)
 		}
 	})
 }
@@ -76,7 +77,7 @@ func BenchmarkRegistry(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			CreateOrGetWorkerGauge("", nil)
+			GaugeInt64(``, nil)
 		}
 	})
 }
@@ -86,7 +87,18 @@ func BenchmarkRegistryReal(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			CreateOrGetWorkerGauge("test_key", testTags)
+			GaugeInt64(`test_key`, testTags)
+		}
+	})
+}
+func BenchmarkAddToRegistryReal(b *testing.B) {
+	var i uint64
+	initDefaultTags()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			testTags[`i`] = atomic.AddUint64(&i, 1)
+			GaugeInt64(`test_key`, testTags)
 		}
 	})
 }
@@ -98,7 +110,7 @@ func BenchmarkRegistryReal_withHiddenTag(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			CreateOrGetWorkerGauge("test_key", testTagsFast)
+			GaugeInt64(`test_key`, testTagsFast)
 		}
 	})
 	SetHiddenTags(nil)
@@ -110,7 +122,7 @@ func BenchmarkRegistryReal_FastTags(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			CreateOrGetWorkerGauge("test_key", testTagsFast)
+			GaugeInt64(`test_key`, testTagsFast)
 		}
 	})
 }
@@ -120,7 +132,7 @@ func BenchmarkTagsString(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			buf := generateStorageKey("", "testKey", testTags)
+			buf := generateStorageKey(TypeGaugeInt64, `testKey`, testTags)
 			buf.Unlock()
 		}
 	})
@@ -132,7 +144,7 @@ func BenchmarkTagsFastString(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			buf := generateStorageKey("", "testKey", testTagsFast)
+			buf := generateStorageKey(TypeGaugeInt64, `testKey`, testTagsFast)
 			buf.Unlock()
 		}
 	})
@@ -143,7 +155,7 @@ func TestGC(t *testing.T) {
 	goroutinesCount := runtime.NumGoroutine()
 	runtime.GC()
 	runtime.ReadMemStats(&memstats)
-	metric := CreateOrGetWorkerGauge(`test_metric`, nil)
+	metric := GaugeInt64(`test_metric`, nil)
 	newGoroutinesCount := runtime.NumGoroutine()
 	metric.Stop()
 	GC()
@@ -157,34 +169,34 @@ func TestGC(t *testing.T) {
 
 func TestRegistry(t *testing.T) {
 	defaultTags = *Tags{
-		"datacenter": "EU",
-		"hostcode":   "999",
-		"hostname":   "e0df6242fcbf",
-		"service":    "rotator",
+		`datacenter`: `EU`,
+		`hostcode`:   `999`,
+		`hostname`:   `e0df6242fcbf`,
+		`service`:    `rotator`,
 	}.ToFastTags()
 
 	tags := Tags{
-		"code":      400,
-		"format_id": "unknown",
-		"network":   "unknown",
+		`code`:      400,
+		`format_id`: `unknown`,
+		`network`:   `unknown`,
 	}
 
 	tags0 := tags.Copy()
-	tags0["key"] = "dsp.bid"
-	CreateOrGetWorkerGauge(`requests`, tags0)
+	tags0[`key`] = `dsp.bid`
+	GaugeInt64(`requests`, tags0)
 
 	tags1 := tags.Copy()
-	tags1["key"] = "dsp.bid.tjnative"
-	CreateOrGetWorkerGauge(`requests`, tags1)
+	tags1[`key`] = `dsp.bid.tjnative`
+	GaugeInt64(`requests`, tags1)
 
-	assert.Equal(t, "dsp.bid", Get(MetricTypeGauge, `requests`, tags0).tags["key"])
-	assert.Equal(t, "dsp.bid.tjnative", Get(MetricTypeGauge, `requests`, tags1).tags["key"])
+	assert.Equal(t, `dsp.bid`, Get(TypeGaugeInt64, `requests`, tags0).GetTag(`key`))
+	assert.Equal(t, `dsp.bid.tjnative`, Get(TypeGaugeInt64, `requests`, tags1).GetTag(`key`))
 }
 
 func TestTagsString(t *testing.T) {
 	initDefaultTags()
 	{
-		buf := generateStorageKey("", "testKey", testTags)
+		buf := generateStorageKey(TypeGaugeInt64, `testKey`, testTags)
 		assert.Equal(t, `testKey,defaultOneMoreTag=null,defaultTag0=0,defaultTagBool=false,defaultTagString=string,hello=world,server=idk,service=rotator,success=true,tag0=0,tag1=1,worker_id=-1`, buf.result.String())
 		buf.Unlock()
 	}
@@ -193,9 +205,9 @@ func TestTagsString(t *testing.T) {
 		SetHiddenTags([]string{`app_id`, `spot`, `spot_id`, `app`})
 		assert.Equal(t, `app`, GetHiddenTags()[0])
 
-		tags := Tags{"spot": true}
+		tags := Tags{`spot`: true}
 		considerHiddenTags(tags)
-		buf := generateStorageKey("", "testKey", tags)
+		buf := generateStorageKey(TypeGaugeInt64, `testKey`, tags)
 		assert.Equal(t, `testKey,defaultOneMoreTag=null,defaultTag0=0,defaultTagBool=false,defaultTagString=string,spot=hidden`, buf.result.String())
 		buf.Unlock()
 	}
