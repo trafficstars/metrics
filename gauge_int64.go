@@ -30,8 +30,3 @@ func GaugeInt64(key string, tags AnyTags) *MetricGaugeInt64 {
 func (m *MetricGaugeInt64) GetType() Type {
 	return TypeGaugeInt64
 }
-
-func (m *MetricGaugeInt64) Release() {
-	*m = MetricGaugeInt64{}
-	metricGaugeInt64Pool.Put(m)
-}

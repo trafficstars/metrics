@@ -4,6 +4,7 @@ package metrics
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/xaionaro-go/atomicmap"
@@ -26,7 +27,8 @@ type iterationHandler struct {
 type iterationHandlersT struct {
 	sync.Mutex
 
-	m atomicmap.Map
+	m             atomicmap.Map
+	routinesCount int64
 	//iterators []*metricIterator
 }
 
@@ -48,6 +50,7 @@ func (iterationHandler *iterationHandler) loop() {
 		select {
 		case <-iterationHandler.stopChan:
 			ticker.Stop()
+			atomic.AddInt64(&iterationHandlers.routinesCount, -1)
 			return
 		case <-ticker.C:
 		}
@@ -65,7 +68,10 @@ func (iterationHandler *iterationHandler) loop() {
 }
 
 func (iterationHandler *iterationHandler) start() {
-	go iterationHandler.loop()
+	go func() {
+		atomic.AddInt64(&iterationHandlers.routinesCount, 1)
+		iterationHandler.loop()
+	}()
 }
 
 func (iterationHandler *iterationHandler) stop() {
@@ -77,23 +83,20 @@ func (iterationHandler *iterationHandler) stop() {
 // Add add a metric to the iterationHandler. It will periodically call method Iterate() of the metric
 func (iterationHandler *iterationHandler) Add(iterator iterator) {
 	iterationHandler.Lock()
+	for _, curIterator := range iterationHandler.iterators {
+		if iterator == curIterator {
+			iterationHandler.Unlock()
+			return
+		}
+	}
 	iterationHandler.iterators = append(iterationHandler.iterators, iterator)
 	iterationHandler.Unlock()
 }
 
 // Remove removed a metric from the iterationHandler.
 // It it was the last metric it will stop the iterationHandler and remove it from the iterationHandlers registry
-func (iterationHandler *iterationHandler) Remove(removeIterator iterator) bool {
-	if iterationHandler == nil {
-		return false
-	}
-
+func (iterationHandler *iterationHandler) Remove(removeIterator iterator) (result bool) {
 	iterationHandler.Lock()
-
-	if len(iterationHandler.iterators) == 0 {
-		iterationHandler.Unlock()
-		return false
-	}
 
 	if len(iterationHandler.iterators) == 1 {
 		if iterationHandler.iterators[0] == removeIterator {
@@ -107,6 +110,8 @@ func (iterationHandler *iterationHandler) Remove(removeIterator iterator) bool {
 			iterationHandler.Unlock()
 			return true
 		}
+		iterationHandler.Unlock()
+		return false
 	}
 
 	// len(iterationHandler.iterators) > 1
@@ -119,14 +124,14 @@ func (iterationHandler *iterationHandler) Remove(removeIterator iterator) bool {
 		leftIterators = append(leftIterators, curIterator)
 	}
 
-	result := false
+	result = false
 	if len(iterationHandler.iterators) != len(leftIterators) {
 		result = true
 		iterationHandler.iterators = leftIterators
 	}
 
 	iterationHandler.Unlock()
-	return result
+	return
 }
 
 func (iterationHandlers *iterationHandlersT) getIterationHandler(iterator iterator) *iterationHandler {
@@ -142,29 +147,39 @@ func (iterationHandlers *iterationHandlersT) getIterationHandler(iterator iterat
 
 func (iterationHandlers *iterationHandlersT) getOrCreateIterationHandler(iterator iterator) *iterationHandler {
 	iterationHandler := iterationHandlers.getIterationHandler(iterator)
-	if iterationHandler == nil {
-		iterationHandlers.Lock()
-		iterationHandler = iterationHandlers.getIterationHandler(iterator)
-		if iterationHandler == nil {
-			iterationHandler = newIterationHandler()
-			iterationHandler.iterateInterval = iterator.GetInterval()
-			if iterationHandler.iterateInterval == time.Duration(0) {
-				return nil
-			}
-			iterationHandler.start()
-			iterationHandlers.m.Set(uint64(iterationHandler.iterateInterval.Nanoseconds()), iterationHandler)
-		}
-		iterationHandlers.Unlock()
+	if iterationHandler != nil {
+		return iterationHandler
 	}
+
+	iterationHandlers.Lock()
+	iterationHandler = iterationHandlers.getIterationHandler(iterator)
+	if iterationHandler != nil {
+		iterationHandlers.Unlock()
+		return iterationHandler
+	}
+
+	iterationHandler = newIterationHandler()
+	iterationHandler.iterateInterval = iterator.GetInterval()
+	if iterationHandler.iterateInterval == time.Duration(0) {
+		iterationHandlers.Unlock()
+		return nil
+	}
+	iterationHandler.start()
+	iterationHandlers.m.Set(uint64(iterationHandler.iterateInterval.Nanoseconds()), iterationHandler)
+	iterationHandlers.Unlock()
 	return iterationHandler
 }
 
+var c int32
+
 // Add adds a metric to the iterators registry. So it will be called method Iterate() of the metric in the interval returned by metric.GetInterval()
 func (iterators *iterationHandlersT) Add(iterator iterator) {
-	iterators.getOrCreateIterationHandler(iterator).Add(iterator)
+	iterationHandler := iterators.getOrCreateIterationHandler(iterator)
+	iterationHandler.Add(iterator)
 }
 
 // Remove removes a metric from the iterators registry (see `(*metricIterators).Add()`).
 func (iterators *iterationHandlersT) Remove(iterator iterator) {
-	iterators.getIterationHandler(iterator).Remove(iterator)
+	iterationHandler := iterators.getIterationHandler(iterator)
+	iterationHandler.Remove(iterator)
 }

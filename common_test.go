@@ -12,7 +12,8 @@ func TestTypes(t *testing.T) {
 	metric = &MetricGaugeInt64Func{}
 	metric = &MetricGaugeFloat64{}
 	metric = &MetricGaugeFloat64Func{}
-	metric = &MetricTiming{}
+	metric = &MetricTimingBuffered{}
+	metric = &MetricTimingFlow{}
 
 	_ = metric
 }

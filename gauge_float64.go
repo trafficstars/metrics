@@ -30,8 +30,3 @@ func GaugeFloat64(key string, tags AnyTags) *MetricGaugeFloat64 {
 func (m *MetricGaugeFloat64) GetType() Type {
 	return TypeGaugeFloat64
 }
-
-func (m *MetricGaugeFloat64) Release() {
-	*m = MetricGaugeFloat64{}
-	metricGaugeFloat64Pool.Put(m)
-}

@@ -33,11 +33,6 @@ func (m *MetricGaugeInt64Func) GetType() Type {
 	return TypeGaugeInt64Func
 }
 
-func (m *MetricGaugeInt64Func) Release() {
-	*m = MetricGaugeInt64Func{}
-	metricGaugeInt64FuncPool.Put(m)
-}
-
 func (m *MetricGaugeInt64Func) Get() int64 {
 	return m.fn()
 }

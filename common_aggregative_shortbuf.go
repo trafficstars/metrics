@@ -7,7 +7,7 @@ import (
 
 const (
 	// Buffer size. The more this buffer the more CPU is utilized and more precise values are.
-	bufferSize = 10000
+	bufferSize = 1000
 )
 
 type aggregativeBufferItems [bufferSize]float64
@@ -126,6 +126,9 @@ func (s *AggregativeStatisticsShortBuf) Set(value float64) {
 }
 
 func (s *AggregativeStatisticsShortBuf) MergeStatistics(oldSI AggregativeStatistics) {
+	if oldSI == nil {
+		return
+	}
 	oldS := oldSI.(*AggregativeStatisticsShortBuf)
 
 	if s.filledSize+oldS.filledSize <= bufferSize {

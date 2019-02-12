@@ -136,6 +136,10 @@ func (m *metricCommon) doIterateGC() {
 		return
 	}
 
+	if m.getWasUseless == nil {
+		return
+	}
+
 	if m.getWasUseless() {
 		m.uselessCounterIncrement()
 		return

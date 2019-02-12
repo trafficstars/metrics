@@ -38,8 +38,3 @@ func (m *MetricGaugeAggregativeFlow) ConsiderValue(v time.Duration) {
 func (m *MetricGaugeAggregativeFlow) GetType() Type {
 	return TypeGaugeAggregativeFlow
 }
-
-func (m *MetricGaugeAggregativeFlow) Release() {
-	*m = MetricGaugeAggregativeFlow{}
-	metricGaugeAggregativeFlowPool.Put(m)
-}

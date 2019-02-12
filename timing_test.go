@@ -2,7 +2,7 @@ package metrics
 
 import (
 	"math/rand"
-	"sync/atomic"
+	"runtime"
 	"testing"
 	"time"
 
@@ -80,6 +80,46 @@ func fillStats(metric interface {
 	metric.ConsiderValue(time.Nanosecond * 4000)
 	metric.ConsiderValue(time.Nanosecond * 6000)
 	metric.ConsiderValue(time.Nanosecond * 5000)
+	metric.ConsiderValue(time.Nanosecond * 3000)
+	metric.ConsiderValue(time.Nanosecond * 7000)
+	metric.ConsiderValue(time.Nanosecond * 4000)
+	metric.ConsiderValue(time.Nanosecond * 6000)
+	metric.ConsiderValue(time.Nanosecond * 5000)
+	metric.ConsiderValue(time.Nanosecond * 3000)
+	metric.ConsiderValue(time.Nanosecond * 7000)
+	metric.ConsiderValue(time.Nanosecond * 4000)
+	metric.ConsiderValue(time.Nanosecond * 6000)
+	metric.ConsiderValue(time.Nanosecond * 5000)
+	metric.ConsiderValue(time.Nanosecond * 3000)
+	metric.ConsiderValue(time.Nanosecond * 7000)
+	metric.ConsiderValue(time.Nanosecond * 4000)
+	metric.ConsiderValue(time.Nanosecond * 6000)
+	metric.ConsiderValue(time.Nanosecond * 5000)
+	metric.ConsiderValue(time.Nanosecond * 3000)
+	metric.ConsiderValue(time.Nanosecond * 7000)
+	metric.ConsiderValue(time.Nanosecond * 4000)
+	metric.ConsiderValue(time.Nanosecond * 6000)
+	metric.ConsiderValue(time.Nanosecond * 5000)
+	metric.ConsiderValue(time.Nanosecond * 3000)
+	metric.ConsiderValue(time.Nanosecond * 7000)
+	metric.ConsiderValue(time.Nanosecond * 4000)
+	metric.ConsiderValue(time.Nanosecond * 6000)
+	metric.ConsiderValue(time.Nanosecond * 5000)
+	metric.ConsiderValue(time.Nanosecond * 3000)
+	metric.ConsiderValue(time.Nanosecond * 7000)
+	metric.ConsiderValue(time.Nanosecond * 4000)
+	metric.ConsiderValue(time.Nanosecond * 6000)
+	metric.ConsiderValue(time.Nanosecond * 5000)
+	metric.ConsiderValue(time.Nanosecond * 3000)
+	metric.ConsiderValue(time.Nanosecond * 7000)
+	metric.ConsiderValue(time.Nanosecond * 4000)
+	metric.ConsiderValue(time.Nanosecond * 6000)
+	metric.ConsiderValue(time.Nanosecond * 5000)
+	metric.ConsiderValue(time.Nanosecond * 3000)
+	metric.ConsiderValue(time.Nanosecond * 7000)
+	metric.ConsiderValue(time.Nanosecond * 4000)
+	metric.ConsiderValue(time.Nanosecond * 6000)
+	metric.ConsiderValue(time.Nanosecond * 5000)
 	metric.DoSlice()
 	metric.ConsiderValue(time.Nanosecond * 500000)
 	metric.Stop()
@@ -87,45 +127,96 @@ func fillStats(metric interface {
 
 func checkValues(t *testing.T, values *AggregativeValues) {
 	assert.Equal(t, uint64(500000), uint64(values.Last.Avg.Get()))
-	assert.Equal(t, uint64(20), values.ByPeriod[0].Count)
+	assert.Equal(t, uint64(60), values.ByPeriod[0].Count)
 	assert.Equal(t, uint64(3000), uint64(values.ByPeriod[0].Min.Get()))
 	assert.Equal(t, uint64(500), uint64((values.ByPeriod[0].Avg.Get()+5)/10))
-	assert.Equal(t, uint64(5), uint64((*values.ByPeriod[0].AggregativeStatistics.GetPercentile(0.5)+500)/1000))
+	assert.Equal(t, uint64(2), uint64((*values.ByPeriod[0].AggregativeStatistics.GetPercentile(0.5)+500)/2500))
 	assert.Equal(t, uint64(7), uint64((*values.ByPeriod[0].AggregativeStatistics.GetPercentile(0.99)+999)/1000))
-	assert.Equal(t, uint64(7), uint64((*values.ByPeriod[1].AggregativeStatistics.GetPercentile(0.99)+999)/1000))
+	assert.Equal(t, uint64(3), uint64((*values.ByPeriod[1].AggregativeStatistics.GetPercentile(0.99)+999)/2000))
 	assert.Equal(t, uint64(7000), uint64(values.ByPeriod[0].Max.Get()))
-	assert.Equal(t, uint64(23), values.ByPeriod[1].Count)
+	assert.Equal(t, uint64(63), values.ByPeriod[1].Count)
 	assert.Equal(t, uint64(3000), uint64(values.ByPeriod[1].Min.Get()))
 	assert.Equal(t, values.ByPeriod[3].String(), values.ByPeriod[2].String())
 	assert.Equal(t, values.ByPeriod[3].String(), values.ByPeriod[4].String())
 	assert.Equal(t, values.ByPeriod[3].String(), values.ByPeriod[5].String())
-	assert.Equal(t, uint64(24), values.Total.Count)
+	assert.Equal(t, uint64(64), values.Total.Count)
 	assert.Equal(t, uint64(3000), uint64(values.Total.Min.Get()))
-	assert.Equal(t, uint64(2), uint64(values.Total.Avg.Get()/10000))
+	assert.Equal(t, uint64(1), uint64(values.Total.Avg.Get()/10000))
 	assert.Equal(t, uint64(500000), uint64(values.Total.Max.Get()))
 }
 
-func TestTiming(t *testing.T) {
-	metric := Timing(`test`, nil)
+func TestTimingBufferd(t *testing.T) {
+	metric := TimingBuffered(`test`, nil)
 	fillStats(metric)
 	checkValues(t, metric.GetValuePointers())
 }
 
-func TestTimingFast(t *testing.T) {
+func TestTimingFlow(t *testing.T) {
 	metric := TimingFlow(`test`, nil)
 	fillStats(metric)
 	checkValues(t, metric.GetValuePointers())
 }
 
-func BenchmarkTimingFillStats(b *testing.B) {
-	i := uint64(0)
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			metric := Timing(`test`, Tags{
-				"i": atomic.AddUint64(&i, 1),
-			})
+func BenchmarkNewTimingBuffered(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		Reset()
+		b.StartTimer()
+		TimingBuffered(`test`, Tags{
+			"i": i,
+		})
+	}
+}
 
-			fillStats(metric)
-		}
+func BenchmarkNewTimingFlow(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		Reset()
+		b.StartTimer()
+		TimingFlow(`test`, Tags{
+			"i": i,
+		})
+	}
+}
+
+func testGC(t *testing.T, fn func()) {
+	memoryReuse = false
+	Reset()
+	keys := metricsRegistry.storage.Keys()
+	if len(keys) != 0 {
+		t.Errorf(`len(keys) == %v\n`, keys)
+	}
+	GC()
+	runtime.GC()
+	if iterationHandlers.routinesCount > 0 {
+		t.Errorf(`iterationHandlers.routinesCount == %v\n`, iterationHandlers.routinesCount)
+		t.Errorf(`iterationHandlers.m.Keys() == %v`, iterationHandlers.m.Keys())
+	}
+	var memstats, cleanedMemstats runtime.MemStats
+	goroutinesCount := runtime.NumGoroutine()
+	runtime.GC()
+	runtime.ReadMemStats(&memstats)
+	fn()
+	GC()
+	runtime.GC()
+	runtime.ReadMemStats(&cleanedMemstats)
+	cleanedGoroutinesCount := runtime.NumGoroutine()
+	assert.Equal(t, int64(0), iterationHandlers.routinesCount)
+	assert.Equal(t, goroutinesCount, cleanedGoroutinesCount)
+	assert.Equal(t, memstats.HeapInuse, cleanedMemstats.HeapInuse)
+	memoryReuse = true
+}
+
+func TestTimingBufferedGC(t *testing.T) {
+	testGC(t, func() {
+		metric := TimingBuffered(`test_gc`, nil)
+		metric.Stop()
+	})
+}
+
+func TestTimingFlowGC(t *testing.T) {
+	testGC(t, func() {
+		metric := TimingFlow(`test_gc`, nil)
+		metric.Stop()
 	})
 }

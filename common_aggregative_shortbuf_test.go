@@ -29,7 +29,7 @@ func (m *metricCommonAggregativeFlowTest) Release() {
 	return
 }
 func (m *metricCommonAggregativeFlowTest) GetType() Type {
-	return TypeGaugeFloat64
+	return TypeTimingFlow
 }
 
 func BenchmarkConsiderValueFlow(b *testing.B) {
@@ -54,6 +54,20 @@ func BenchmarkDoSliceFlow(b *testing.B) {
 	}
 }
 
+var (
+	testMFlow = &metricCommonAggregativeFlowTest{}
+)
+
+func BenchmarkGetPercentilesFlow(b *testing.B) {
+	Reset()
+	m := testMFlow
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.considerValue(float64(i))
+		m.GetValuePointers().Total.AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
+	}
+}
+
 type metricCommonAggregativeShortBufTest struct {
 	metricCommonAggregativeShortBuf
 }
@@ -62,7 +76,7 @@ func (m *metricCommonAggregativeShortBufTest) Release() {
 	return
 }
 func (m *metricCommonAggregativeShortBufTest) GetType() Type {
-	return TypeGaugeFloat64
+	return TypeTimingBuffered
 }
 
 func BenchmarkConsiderValueShortBuf(b *testing.B) {
@@ -102,9 +116,19 @@ func BenchmarkGetPercentilesShortBuf(b *testing.B) {
 }
 
 func init() {
-	m := testMShortBuf
-	m.init(m, `test`, nil)
-	for i := 0; i < bufferSize; i++ {
-		m.considerValue(float64(i))
+	{
+		m := testMShortBuf
+		m.init(m, `test`, nil)
+		for i := 0; i < bufferSize; i++ {
+			m.considerValue(float64(i))
+		}
+	}
+
+	{
+		m := testMFlow
+		m.init(m, `test`, nil)
+		for i := 0; i < bufferSize; i++ {
+			m.considerValue(float64(i))
+		}
 	}
 }

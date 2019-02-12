@@ -5,14 +5,18 @@ import (
 )
 
 var (
+	memoryReuse = true
+)
+
+var (
 	metricCountPool = &sync.Pool{
 		New: func() interface{} {
 			return &MetricCount{}
 		},
 	}
-	metricGaugeAggregativePool = &sync.Pool{
+	metricGaugeAggregativeBufferedPool = &sync.Pool{
 		New: func() interface{} {
-			return &MetricGaugeAggregative{}
+			return &MetricGaugeAggregativeBuffered{}
 		},
 	}
 	metricGaugeAggregativeFlowPool = &sync.Pool{
@@ -40,9 +44,9 @@ var (
 			return &MetricGaugeInt64Func{}
 		},
 	}
-	metricTimingPool = &sync.Pool{
+	metricTimingBufferedPool = &sync.Pool{
 		New: func() interface{} {
-			return &MetricTiming{}
+			return &MetricTimingBuffered{}
 		},
 	}
 	metricTimingFlowPool = &sync.Pool{
@@ -79,6 +83,9 @@ var (
 )
 
 func (s *AggregativeStatisticsShortBuf) Release() {
+	if !memoryReuse {
+		return
+	}
 	s.filledSize = 0
 	s.tickID = 0
 	aggregativeStatisticsShortBufPool.Put(s)
@@ -89,6 +96,9 @@ func newAggregativeStatisticsShortBuf() *AggregativeStatisticsShortBuf {
 }
 
 func (b *aggregativeBuffer) Release() {
+	if !memoryReuse {
+		return
+	}
 	b.filledSize = 0
 	aggregativeBufferPool.Put(b)
 }
@@ -98,6 +108,9 @@ func newAggregativeBuffer() *aggregativeBuffer {
 }
 
 func (s *AggregativeStatisticsFlow) Release() {
+	if !memoryReuse {
+		return
+	}
 	s.Set(0)
 	s.tickID = 0
 	aggregativeStatisticsFlowPool.Put(s)
@@ -110,6 +123,9 @@ func newAggregativeStatisticsFlow() *AggregativeStatisticsFlow {
 // Release is an opposite to NewAggregativeValue and it saves the variable to a pool to a prevent memory allocation in future.
 // It's not necessary to call this method when you finished to work with an AggregativeValue, but recommended to (for better performance).
 func (v *AggregativeValue) Release() {
+	if !memoryReuse {
+		return
+	}
 	if v == nil {
 		return
 	}
@@ -118,4 +134,76 @@ func (v *AggregativeValue) Release() {
 		v.AggregativeStatistics = nil
 	}
 	aggregativeValuePool.Put(v)
+}
+
+func (m *MetricGaugeFloat64Func) Release() {
+	if !memoryReuse {
+		return
+	}
+	*m = MetricGaugeFloat64Func{}
+	metricGaugeFloat64FuncPool.Put(m)
+}
+
+func (m *MetricCount) Release() {
+	if !memoryReuse {
+		return
+	}
+	*m = MetricCount{}
+	metricCountPool.Put(m)
+}
+
+func (m *MetricGaugeAggregativeFlow) Release() {
+	if !memoryReuse {
+		return
+	}
+	*m = MetricGaugeAggregativeFlow{}
+	metricGaugeAggregativeFlowPool.Put(m)
+}
+
+func (m *MetricGaugeAggregativeBuffered) Release() {
+	if !memoryReuse {
+		return
+	}
+	*m = MetricGaugeAggregativeBuffered{}
+	metricGaugeAggregativeBufferedPool.Put(m)
+}
+
+func (m *MetricGaugeInt64) Release() {
+	if !memoryReuse {
+		return
+	}
+	*m = MetricGaugeInt64{}
+	metricGaugeInt64Pool.Put(m)
+}
+
+func (m *MetricGaugeInt64Func) Release() {
+	if !memoryReuse {
+		return
+	}
+	*m = MetricGaugeInt64Func{}
+	metricGaugeInt64FuncPool.Put(m)
+}
+
+func (m *MetricTimingFlow) Release() {
+	if !memoryReuse {
+		return
+	}
+	*m = MetricTimingFlow{}
+	metricTimingFlowPool.Put(m)
+}
+
+func (m *MetricTimingBuffered) Release() {
+	if !memoryReuse {
+		return
+	}
+	*m = MetricTimingBuffered{}
+	metricTimingBufferedPool.Put(m)
+}
+
+func (m *MetricGaugeFloat64) Release() {
+	if !memoryReuse {
+		return
+	}
+	*m = MetricGaugeFloat64{}
+	metricGaugeFloat64Pool.Put(m)
 }

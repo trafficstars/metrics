@@ -38,8 +38,3 @@ func (m *MetricTimingFlow) ConsiderValue(v time.Duration) {
 func (m *MetricTimingFlow) GetType() Type {
 	return TypeTimingFlow
 }
-
-func (m *MetricTimingFlow) Release() {
-	*m = MetricTimingFlow{}
-	metricTimingFlowPool.Put(m)
-}

@@ -132,14 +132,15 @@ type AggregativeValues struct {
 
 // slicer returns an object that will call method DoSlice() of metricCommonAggregative if method Iterate() was called.
 type metricCommonAggregativeSlicer struct {
-	metric *metricCommonAggregative
+	metric   *metricCommonAggregative
+	interval time.Duration
 }
 
 func (slicer *metricCommonAggregativeSlicer) Iterate() {
 	slicer.metric.DoSlice()
 }
 func (slicer *metricCommonAggregativeSlicer) GetInterval() time.Duration {
-	return slicerInterval
+	return slicer.interval
 }
 func (slicer *metricCommonAggregativeSlicer) IsRunning() bool {
 	return slicer.metric.IsRunning()
@@ -159,7 +160,8 @@ type metricCommonAggregative struct {
 
 func (m *metricCommonAggregative) init(parent Metric, key string, tags AnyTags) {
 	m.slicer = &metricCommonAggregativeSlicer{
-		metric: m,
+		metric:   m,
+		interval: slicerInterval,
 	}
 	m.aggregationPeriods = GetAggregationPeriods()
 	m.data.Last = NewAggregativeValue()
@@ -316,6 +318,9 @@ func (m *metricCommonAggregative) Run(interval time.Duration) {
 	if m == nil {
 		return
 	}
+	if m.IsRunning() {
+		return
+	}
 	m.Lock()
 	m.run(interval)
 
@@ -328,6 +333,9 @@ func (m *metricCommonAggregative) Run(interval time.Duration) {
 
 func (m *metricCommonAggregative) Stop() {
 	if m == nil {
+		return
+	}
+	if !m.IsRunning() {
 		return
 	}
 	m.Lock()

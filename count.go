@@ -30,8 +30,3 @@ func Count(key string, tags AnyTags) *MetricCount {
 func (m *MetricCount) GetType() Type {
 	return TypeCount
 }
-
-func (m *MetricCount) Release() {
-	*m = MetricCount{}
-	metricCountPool.Put(m)
-}
