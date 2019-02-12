@@ -77,48 +77,6 @@ func guessPercentile(curValue, newValue float64, count uint64, perc float64) flo
 	return (curValue*inertness + newValue) / (inertness + 1)
 }
 
-func (m *metricCommonAggregativeFast) considerValue(v float64) {
-	if m == nil {
-		return
-	}
-
-	appendData := func(data *AggregativeValue) {
-		data.Lock()
-		count := data.Count
-		if count == 0 || v < data.Min.GetFast() {
-			data.Min.SetFast(v)
-		}
-
-		if count == 0 || v > data.Max.GetFast() {
-			data.Max.SetFast(v)
-		}
-
-		data.Avg.SetFast((data.Avg.GetFast()*float64(count) + v) / (float64(count) + 1))
-		stat := data.AggregativeStatistics.(*AggregativeStatisticsFast)
-		if count == 0 {
-			stat.Per1.SetFast(v)
-			stat.Per10.SetFast(v)
-			stat.Per50.SetFast(v)
-			stat.Per90.SetFast(v)
-			stat.Per99.SetFast(v)
-		} else {
-			stat.Per1.SetFast(guessPercentile(stat.Per1.GetFast(), v, count, 0.01))
-			stat.Per10.SetFast(guessPercentile(stat.Per10.GetFast(), v, count, 0.1))
-			stat.Per50.SetFast(guessPercentile(stat.Per50.GetFast(), v, count, 0.5))
-			stat.Per90.SetFast(guessPercentile(stat.Per90.GetFast(), v, count, 0.9))
-			stat.Per99.SetFast(guessPercentile(stat.Per99.GetFast(), v, count, 0.99))
-		}
-
-		data.Count++
-		data.Unlock()
-	}
-
-	appendData((*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Current)))))
-	appendData((*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Total)))))
-	(*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Last)))).set(v)
-
-}
-
 func rotateHistory(h *history) {
 	h.currentOffset++
 	if h.currentOffset >= uint32(len(h.storage)) {
@@ -127,6 +85,8 @@ func rotateHistory(h *history) {
 }
 
 type AggregativeStatisticsFast struct {
+	tickID uint64
+
 	Per1  AtomicFloat64Ptr
 	Per10 AtomicFloat64Ptr
 	Per50 AtomicFloat64Ptr
@@ -150,22 +110,40 @@ func (s *AggregativeStatisticsFast) GetPercentile(percentile float64) *float64 {
 	return nil
 }
 
+func (s *AggregativeStatisticsFast) GetPercentiles(percentiles []float64) []*float64 {
+	r := make([]*float64, 0, len(percentiles))
+	for _, percentile := range percentiles {
+		r = append(r, s.GetPercentile(percentile))
+	}
+	return r
+}
+
+// ConsiderValue should be called only for locked items
+func (s *AggregativeStatisticsFast) ConsiderValue(v float64) {
+	s.tickID++
+
+	if s.tickID == 1 {
+		s.Per1.SetFast(v)
+		s.Per10.SetFast(v)
+		s.Per50.SetFast(v)
+		s.Per90.SetFast(v)
+		s.Per99.SetFast(v)
+		return
+	}
+
+	s.Per1.SetFast(guessPercentile(s.Per1.GetFast(), v, s.tickID, 0.01))
+	s.Per10.SetFast(guessPercentile(s.Per10.GetFast(), v, s.tickID, 0.1))
+	s.Per50.SetFast(guessPercentile(s.Per50.GetFast(), v, s.tickID, 0.5))
+	s.Per90.SetFast(guessPercentile(s.Per90.GetFast(), v, s.tickID, 0.9))
+	s.Per99.SetFast(guessPercentile(s.Per99.GetFast(), v, s.tickID, 0.99))
+}
+
 func (s *AggregativeStatisticsFast) Set(value float64) {
 	s.Per1.Set(value)
 	s.Per10.Set(value)
 	s.Per50.Set(value)
 	s.Per90.Set(value)
 	s.Per99.Set(value)
-}
-
-func (s *AggregativeStatisticsFast) Release() {
-	s.Set(0)
-	aggregativeStatisticsFastPool.Put(s)
-}
-
-func newAggregativeStatisticsFast() *AggregativeStatisticsFast {
-	s := aggregativeStatisticsFastPool.Get().(*AggregativeStatisticsFast)
-	return s
 }
 
 func (w *metricCommonAggregativeFast) calculateValue(h *history) (r *AggregativeValue) {
@@ -234,6 +212,9 @@ func (m *metricCommonAggregativeFast) considerFilledValue(filledValue *Aggregati
 	tick := atomic.AddUint64(&m.tick, 1)
 
 	updateLastHistoryRecord := func(h *history, newValue *AggregativeValue) {
+		if h.storage[h.currentOffset] != nil {
+			h.storage[h.currentOffset].Release()
+		}
 		h.storage[h.currentOffset] = newValue
 	}
 

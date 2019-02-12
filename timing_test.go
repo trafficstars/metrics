@@ -2,9 +2,9 @@ package metrics
 
 import (
 	"math/rand"
-
 	"testing"
 	"time"
+	"sync/atomic"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -48,8 +48,7 @@ func TestGuessPercentile(t *testing.T) {
 	}
 }
 
-func TestTiming(t *testing.T) {
-	metric := Timing(`test`, nil)
+func fillStats(metric *MetricTiming) {
 	metric.Run(5 * time.Second)
 	metric.ConsiderValue(time.Nanosecond * 5000)
 	metric.DoSlice()
@@ -79,6 +78,24 @@ func TestTiming(t *testing.T) {
 	metric.DoSlice()
 	metric.ConsiderValue(time.Nanosecond * 500000)
 	metric.Stop()
+}
+
+func BenchmarkTiming(b *testing.B) {
+	i := uint64(0)
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			metric := Timing(`test`, Tags{
+				"i": atomic.AddUint64(&i, 1),
+			})
+
+			fillStats(metric)
+		}
+	})
+}
+
+func TestTiming(t *testing.T) {
+	metric := Timing(`test`, nil)
+	fillStats(metric)
 
 	values := metric.GetValuePointers()
 	assert.Equal(t, uint64(500000), uint64(values.Last.Avg.Get()))

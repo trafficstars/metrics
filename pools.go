@@ -56,4 +56,43 @@ var (
 			return s
 		},
 	}
+	aggregativeBufferPool = &sync.Pool{
+		New: func() interface{} {
+			return &aggregativeBuffer{}
+		},
+	}
+	aggregativeStatisticsShortBufPool = &sync.Pool{
+		New: func() interface{} {
+			return &AggregativeStatisticsShortBuf{}
+		},
+	}
 )
+
+func (s *AggregativeStatisticsShortBuf) Release() {
+	s.filledSize = 0
+	s.tickID = 0
+	aggregativeStatisticsShortBufPool.Put(s)
+}
+
+func newAggregativeStatisticsShortBuf() *AggregativeStatisticsShortBuf {
+	return aggregativeStatisticsShortBufPool.Get().(*AggregativeStatisticsShortBuf)
+}
+
+func (b *aggregativeBuffer) Release() {
+	b.filledSize = 0
+	aggregativeBufferPool.Put(b)
+}
+
+func newAggregativeBuffer() *aggregativeBuffer {
+	return aggregativeBufferPool.Get().(*aggregativeBuffer)
+}
+
+func (s *AggregativeStatisticsFast) Release() {
+	s.Set(0)
+	s.tickID = 0
+	aggregativeStatisticsFastPool.Put(s)
+}
+
+func newAggregativeStatisticsFast() *AggregativeStatisticsFast {
+	return aggregativeStatisticsFastPool.Get().(*AggregativeStatisticsFast)
+}

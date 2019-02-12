@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unsafe"
 )
 
 var (
@@ -16,10 +17,18 @@ var (
 
 type AggregativeStatistics interface {
 	// GetPercentile returns the value for a given percentile (0.0 .. 1.0).
-	// It returns nil if the percentile could not be calculated (it could be in case of using "fast" [instead of "correct"] aggregative metrics)
+	// It returns nil if the percentile could not be calculated (it could be in case of using "fast" [instead of "shortBuf"] aggregative metrics)
+	//
+	// If you need to calculate multiple percentiles then use GetPercentiles() to get better performance
 	GetPercentile(percentile float64) *float64
 
+	// GetPercentiles returns values for given percentiles (0.0 .. 1.0).
+	// A value is nil if the percentile could not be calculated.
+	GetPercentiles(percentile []float64) []*float64
+
 	Set(staticValue float64)
+
+	ConsiderValue(value float64)
 
 	Release()
 }
@@ -177,6 +186,34 @@ func (metric *metricCommonAggregative) init(parent Metric, key string, tags AnyT
 	metric.metricCommon.init(parent, key, tags, func() bool { return atomic.LoadUint64(&metric.data.ByPeriod[0].Count) == 0 })
 }
 
+func (m *metricCommonAggregative) considerValue(v float64) {
+	if m == nil {
+		return
+	}
+
+	appendData := func(data *AggregativeValue) {
+		data.Lock()
+		count := data.Count
+		if count == 0 || v < data.Min.GetFast() {
+			data.Min.SetFast(v)
+		}
+
+		if count == 0 || v > data.Max.GetFast() {
+			data.Max.SetFast(v)
+		}
+
+		data.Avg.SetFast((data.Avg.GetFast()*float64(count) + v) / (float64(count) + 1))
+		data.AggregativeStatistics.ConsiderValue(v)
+		data.Count++
+		data.Unlock()
+	}
+
+	appendData((*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Current)))))
+	appendData((*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Total)))))
+	(*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Last)))).set(v)
+
+}
+
 func (w *metricCommonAggregative) GetValuePointers() *AggregativeValues {
 	if w == nil {
 		return &AggregativeValues{}
@@ -191,16 +228,17 @@ func (metric *metricCommonAggregative) MarshalJSON() ([]byte, error) {
 		if data.Count == 0 {
 			return
 		}
+		percentiles := data.AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
 		jsonValues = append(jsonValues, fmt.Sprintf(`"%v":{"count":%d,"min":%g,"per1":%g,"per10":%g,"per50":%g,"avg":%g,"per90":%g,"per99":%g,"max":%g}`,
 			label,
 			atomic.LoadUint64(&data.Count),
 			data.Min.Get(),
-			*data.AggregativeStatistics.GetPercentile(0.01),
-			*data.AggregativeStatistics.GetPercentile(0.1),
-			*data.AggregativeStatistics.GetPercentile(0.5),
+			*percentiles[0],
+			*percentiles[1],
+			*percentiles[2],
 			data.Avg.Get(),
-			*data.AggregativeStatistics.GetPercentile(0.9),
-			*data.AggregativeStatistics.GetPercentile(0.99),
+			*percentiles[3],
+			*percentiles[4],
 			data.Max.Get(),
 		))
 	}
@@ -238,14 +276,15 @@ func (m *metricCommonAggregative) Send(sender Sender) {
 	considerValue := func(label string, data *AggregativeValue) {
 		baseKey := string(m.storageKey) + `_` + label + `_`
 
+		percentiles := data.AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
 		sender.SendUint64(m.parent, baseKey+`count`, atomic.LoadUint64(&data.Count))
 		sender.SendFloat64(m.parent, baseKey+`min`, data.Min.Get())
-		sender.SendFloat64(m.parent, baseKey+`per1`, *data.AggregativeStatistics.GetPercentile(0.01))
-		sender.SendFloat64(m.parent, baseKey+`per10`, *data.AggregativeStatistics.GetPercentile(0.1))
-		sender.SendFloat64(m.parent, baseKey+`per50`, *data.AggregativeStatistics.GetPercentile(0.5))
+		sender.SendFloat64(m.parent, baseKey+`per1`, *percentiles[0])
+		sender.SendFloat64(m.parent, baseKey+`per10`, *percentiles[1])
+		sender.SendFloat64(m.parent, baseKey+`per50`, *percentiles[2])
 		sender.SendFloat64(m.parent, baseKey+`avg`, data.Avg.Get())
-		sender.SendFloat64(m.parent, baseKey+`per90`, *data.AggregativeStatistics.GetPercentile(0.9))
-		sender.SendFloat64(m.parent, baseKey+`per99`, *data.AggregativeStatistics.GetPercentile(0.99))
+		sender.SendFloat64(m.parent, baseKey+`per90`, *percentiles[3])
+		sender.SendFloat64(m.parent, baseKey+`per99`, *percentiles[4])
 		sender.SendFloat64(m.parent, baseKey+`max`, data.Max.Get())
 	}
 
