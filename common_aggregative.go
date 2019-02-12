@@ -31,6 +31,9 @@ type AggregativeStatistics interface {
 	ConsiderValue(value float64)
 
 	Release()
+
+	MergeStatistics(AggregativeStatistics, uint64)
+	NormalizeData(uint64)
 }
 
 // SetSlicerInterval affects only new metrics (it doesn't affect already created one). You may use function `Reset()` to "update" configuration of all metrics.
@@ -113,18 +116,6 @@ func NewAggregativeValue() *AggregativeValue {
 	return r
 }
 
-// Release is an opposite to NewAggregativeValue and it saves the variable to a pool to a prevent memory allocation in future.
-// It's not necessary to call this method when you finished to work with an AggregativeValue, but recommended to (for better performance).
-func (v *AggregativeValue) Release() {
-	if v == nil {
-		return
-	}
-	if v.AggregativeStatistics != nil {
-		v.AggregativeStatistics.Release()
-	}
-	aggregativeValuePool.Put(v)
-}
-
 func (aggrV *AggregativeValue) set(v float64) {
 	atomic.StoreUint64(&aggrV.Count, 1)
 	aggrV.Min.Set(v)
@@ -140,17 +131,13 @@ type AggregativeValues struct {
 	Total    *AggregativeValue
 }
 
-type doSlicer interface {
-	DoSlice()
-}
-
 // slicer returns an object that will call method DoSlice() of metricCommonAggregative if method Iterate() was called.
 type metricCommonAggregativeSlicer struct {
 	metric *metricCommonAggregative
 }
 
 func (slicer *metricCommonAggregativeSlicer) Iterate() {
-	slicer.metric.doSlicer.DoSlice()
+	slicer.metric.DoSlice()
 }
 func (slicer *metricCommonAggregativeSlicer) GetInterval() time.Duration {
 	return slicerInterval
@@ -166,24 +153,40 @@ type metricCommonAggregative struct {
 	data               AggregativeValues
 	currentSliceData   *AggregativeValue
 	tick               uint64
-	doSlicer           doSlicer
 	slicer             iterator
+
+	histories histories
 }
 
-func (metric *metricCommonAggregative) init(parent Metric, key string, tags AnyTags) {
-	metric.slicer = &metricCommonAggregativeSlicer{
-		metric: metric,
+func (m *metricCommonAggregative) init(parent Metric, key string, tags AnyTags) {
+	m.slicer = &metricCommonAggregativeSlicer{
+		metric: m,
 	}
-	metric.aggregationPeriods = GetAggregationPeriods()
-	metric.data.Last = NewAggregativeValue()
-	metric.data.Current = NewAggregativeValue()
-	metric.data.Total = NewAggregativeValue()
-	metric.data.ByPeriod = make([]*AggregativeValue, 0, len(metric.aggregationPeriods)+1)
-	metric.data.ByPeriod = append(metric.data.ByPeriod, NewAggregativeValue()) // no aggregation, yet
-	for range metric.aggregationPeriods {
-		metric.data.ByPeriod = append(metric.data.ByPeriod, NewAggregativeValue()) // aggregated ones
+	m.aggregationPeriods = GetAggregationPeriods()
+	m.data.Last = NewAggregativeValue()
+	m.data.Current = NewAggregativeValue()
+	m.data.Total = NewAggregativeValue()
+	m.data.ByPeriod = make([]*AggregativeValue, 0, len(m.aggregationPeriods)+1)
+	m.data.ByPeriod = append(m.data.ByPeriod, NewAggregativeValue()) // no aggregation, yet
+	for range m.aggregationPeriods {
+		m.data.ByPeriod = append(m.data.ByPeriod, NewAggregativeValue()) // aggregated ones
 	}
-	metric.metricCommon.init(parent, key, tags, func() bool { return atomic.LoadUint64(&metric.data.ByPeriod[0].Count) == 0 })
+
+	m.histories.ByPeriod = make([]*history, 0, len(m.aggregationPeriods))
+	previousPeriod := AggregationPeriod{1}
+	for _, period := range m.aggregationPeriods {
+		hist := &history{}
+		if period.Interval%previousPeriod.Interval != 0 {
+			// TODO: print error
+			//panic(fmt.Errorf("period.Interval (%v) %% previousPeriod.Interval (%v) != 0 (%v)", period.Interval, previousPeriod.Interval, period.Interval%previousPeriod.Interval))
+		}
+		hist.storage = make([]*AggregativeValue, period.Interval/previousPeriod.Interval)
+
+		m.histories.ByPeriod = append(m.histories.ByPeriod, hist)
+		previousPeriod = period
+	}
+
+	m.metricCommon.init(parent, key, tags, func() bool { return atomic.LoadUint64(&m.data.ByPeriod[0].Count) == 0 })
 }
 
 func (m *metricCommonAggregative) considerValue(v float64) {
@@ -324,4 +327,115 @@ func (m *metricCommonAggregative) Stop() {
 
 	m.Unlock()
 	return
+}
+
+type history struct {
+	currentOffset uint32
+	storage       []*AggregativeValue
+}
+
+type histories struct {
+	sync.Mutex
+
+	ByPeriod []*history
+}
+
+func rotateHistory(h *history) {
+	h.currentOffset++
+	if h.currentOffset >= uint32(len(h.storage)) {
+		h.currentOffset = 0
+	}
+}
+
+func (m *metricCommonAggregative) calculateValue(h *history) (r *AggregativeValue) {
+	depth := len(h.storage)
+	offset := h.currentOffset
+	if h.storage[offset] == nil {
+		return
+	}
+
+	r = NewAggregativeValue()
+	r.AggregativeStatistics = m.newAggregativeStatistics()
+
+	for depth > 0 {
+		e := h.storage[offset]
+		if e == nil {
+			break
+		}
+		depth--
+		offset--
+		if offset == ^uint32(0) { // analog of "offset == -1", but for unsigned integer
+			offset = uint32(len(h.storage) - 1)
+		}
+
+		r.MergeData(e)
+	}
+
+	r.NormalizeData()
+	return
+}
+
+func (r *AggregativeValue) MergeData(e *AggregativeValue) {
+	if (e.Min < r.Min || (r.Count == 0 && e.Count != 0)) && e.Min != 0 { // TODO: should work correctly without "e.Min != 0" but it doesn't: min value is always zero
+		r.Min = e.Min
+	}
+	if e.Max > r.Max || (r.Count == 0 && e.Count != 0) {
+		r.Max = e.Max
+	}
+
+	count := e.Count
+	r.Count += count
+	r.Avg.SetFast(r.Avg.GetFast() + e.Avg.GetFast()*float64(count))
+	r.AggregativeStatistics.MergeStatistics(e.AggregativeStatistics, count)
+}
+
+func (r *AggregativeValue) NormalizeData() {
+	count := r.Count
+	if count == 0 {
+		return
+	}
+
+	r.Avg.SetFast(r.Avg.GetFast() / float64(count))
+	r.AggregativeStatistics.NormalizeData(count)
+}
+
+func (m *metricCommonAggregative) considerFilledValue(filledValue *AggregativeValue) {
+	m.histories.Lock()
+	defer m.histories.Unlock()
+
+	tick := atomic.AddUint64(&m.tick, 1)
+
+	updateLastHistoryRecord := func(h *history, newValue *AggregativeValue) {
+		if h.storage[h.currentOffset] != nil {
+			h.storage[h.currentOffset].Release()
+		}
+		h.storage[h.currentOffset] = newValue
+	}
+
+	atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.ByPeriod[0])), (unsafe.Pointer)(filledValue))
+	rotateHistory(m.histories.ByPeriod[0])
+	updateLastHistoryRecord(m.histories.ByPeriod[0], filledValue)
+
+	for lIdx, aggregationPeriod := range m.aggregationPeriods {
+		idx := lIdx + 1
+		newValue := m.calculateValue(m.histories.ByPeriod[idx-1])
+		atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.ByPeriod[idx])), (unsafe.Pointer)(newValue))
+		if idx < len(m.histories.ByPeriod) {
+			if tick%aggregationPeriod.Interval == 0 {
+				rotateHistory(m.histories.ByPeriod[idx])
+			}
+			updateLastHistoryRecord(m.histories.ByPeriod[idx], newValue)
+		}
+	}
+}
+
+func (m *metricCommonAggregative) newAggregativeStatistics() AggregativeStatistics {
+	return m.parent.(interface{ NewAggregativeStatistics() AggregativeStatistics }).NewAggregativeStatistics()
+}
+
+func (m *metricCommonAggregative) DoSlice() {
+	nextValue := NewAggregativeValue()
+	nextValue.AggregativeStatistics = m.newAggregativeStatistics()
+	filledValue := (*AggregativeValue)(atomic.SwapPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Current)), (unsafe.Pointer)(nextValue)))
+	m.considerFilledValue(filledValue)
 }

@@ -5,8 +5,8 @@ import (
 )
 
 type MetricTiming struct {
-	//metricCommonAggregativeShortBuf
-	metricCommonAggregativeFast
+	metricCommonAggregativeShortBuf
+	//metricCommonAggregativeFlow
 }
 
 func newMetricTiming(key string, tags AnyTags) *MetricTiming {
@@ -16,8 +16,8 @@ func newMetricTiming(key string, tags AnyTags) *MetricTiming {
 }
 
 func (m *MetricTiming) init(key string, tags AnyTags) {
-	//m.metricCommonAggregativeShortBuf.init(m, key, tags)
-	m.metricCommonAggregativeFast.init(m, key, tags)
+	m.metricCommonAggregativeShortBuf.init(m, key, tags)
+	//m.metricCommonAggregativeFlow.init(m, key, tags)
 }
 
 func Timing(key string, tags AnyTags) *MetricTiming {

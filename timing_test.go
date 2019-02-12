@@ -2,9 +2,9 @@ package metrics
 
 import (
 	"math/rand"
+	"sync/atomic"
 	"testing"
 	"time"
-	"sync/atomic"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -80,19 +80,6 @@ func fillStats(metric *MetricTiming) {
 	metric.Stop()
 }
 
-func BenchmarkTiming(b *testing.B) {
-	i := uint64(0)
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			metric := Timing(`test`, Tags{
-				"i": atomic.AddUint64(&i, 1),
-			})
-
-			fillStats(metric)
-		}
-	})
-}
-
 func TestTiming(t *testing.T) {
 	metric := Timing(`test`, nil)
 	fillStats(metric)
@@ -114,4 +101,17 @@ func TestTiming(t *testing.T) {
 	assert.Equal(t, uint64(3000), uint64(values.Total.Min.Get()))
 	assert.Equal(t, uint64(2), uint64(values.Total.Avg.Get()/10000))
 	assert.Equal(t, uint64(500000), uint64(values.Total.Max.Get()))
+}
+
+func BenchmarkTimingFillStats(b *testing.B) {
+	i := uint64(0)
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			metric := Timing(`test`, Tags{
+				"i": atomic.AddUint64(&i, 1),
+			})
+
+			fillStats(metric)
+		}
+	})
 }

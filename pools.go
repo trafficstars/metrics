@@ -45,9 +45,9 @@ var (
 			return &AggregativeValue{}
 		},
 	}
-	aggregativeStatisticsFastPool = &sync.Pool{
+	aggregativeStatisticsFlowPool = &sync.Pool{
 		New: func() interface{} {
-			s := &AggregativeStatisticsFast{}
+			s := &AggregativeStatisticsFlow{}
 			s.Per1.Pointer = &[]float64{0}[0]
 			s.Per10.Pointer = &[]float64{0}[0]
 			s.Per50.Pointer = &[]float64{0}[0]
@@ -87,12 +87,25 @@ func newAggregativeBuffer() *aggregativeBuffer {
 	return aggregativeBufferPool.Get().(*aggregativeBuffer)
 }
 
-func (s *AggregativeStatisticsFast) Release() {
+func (s *AggregativeStatisticsFlow) Release() {
 	s.Set(0)
 	s.tickID = 0
-	aggregativeStatisticsFastPool.Put(s)
+	aggregativeStatisticsFlowPool.Put(s)
 }
 
-func newAggregativeStatisticsFast() *AggregativeStatisticsFast {
-	return aggregativeStatisticsFastPool.Get().(*AggregativeStatisticsFast)
+func newAggregativeStatisticsFlow() *AggregativeStatisticsFlow {
+	return aggregativeStatisticsFlowPool.Get().(*AggregativeStatisticsFlow)
+}
+
+// Release is an opposite to NewAggregativeValue and it saves the variable to a pool to a prevent memory allocation in future.
+// It's not necessary to call this method when you finished to work with an AggregativeValue, but recommended to (for better performance).
+func (v *AggregativeValue) Release() {
+	if v == nil {
+		return
+	}
+	if v.AggregativeStatistics != nil {
+		v.AggregativeStatistics.Release()
+		v.AggregativeStatistics = nil
+	}
+	aggregativeValuePool.Put(v)
 }

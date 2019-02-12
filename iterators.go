@@ -90,16 +90,26 @@ func (iterationHandler *iterationHandler) Remove(removeIterator iterator) bool {
 
 	iterationHandler.Lock()
 
+	if len(iterationHandler.iterators) == 0 {
+		iterationHandler.Unlock()
+		return false
+	}
+
 	if len(iterationHandler.iterators) == 1 {
 		if iterationHandler.iterators[0] == removeIterator {
 			iterationHandler.iterators = nil
 			iterationHandler.stop()
 			mapKey := uint64(iterationHandler.iterateInterval.Nanoseconds())
 			iterationHandlers.m.(interface{ LockUnset(atomicmap.Key) error }).LockUnset(mapKey)
+			/*if err := iterationHandlers.m.(interface{ LockUnset(atomicmap.Key) error }).LockUnset(mapKey); err != nil {
+				panic(err)
+			}*/
 			iterationHandler.Unlock()
 			return true
 		}
 	}
+
+	// len(iterationHandler.iterators) > 1
 
 	leftIterators := make([]iterator, 0, len(iterationHandler.iterators)-1)
 	for _, curIterator := range iterationHandler.iterators {

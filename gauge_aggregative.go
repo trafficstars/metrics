@@ -5,7 +5,8 @@ import (
 )
 
 type MetricGaugeAggregative struct {
-	metricCommonAggregativeFast
+	//metricCommonAggregativeFlow
+	metricCommonAggregativeShortBuf
 }
 
 func newMetricGaugeAggregative(key string, tags AnyTags) *MetricGaugeAggregative {
@@ -15,7 +16,8 @@ func newMetricGaugeAggregative(key string, tags AnyTags) *MetricGaugeAggregative
 }
 
 func (m *MetricGaugeAggregative) init(key string, tags AnyTags) {
-	m.metricCommonAggregativeFast.init(m, key, tags)
+	//m.metricCommonAggregativeFlow.init(m, key, tags)
+	m.metricCommonAggregativeShortBuf.init(m, key, tags)
 }
 
 func GaugeAggregative(key string, tags AnyTags) *MetricGaugeAggregative {

@@ -12,51 +12,15 @@ const (
 
 type aggregativeBufferItems [bufferSize]float64
 
-func (s aggregativeBufferItems) swap(i, j uint32) {
-	s[i], s[j] = s[j], s[i]
-}
-
-func (s aggregativeBufferItems) qsort_partition(p uint32, q uint32, pivotIdx uint32) uint32 {
-	pivot := s[pivotIdx]
-	s.swap(pivotIdx, q)
-	i := p
-	for j := p; j < q; j++ {
-		if s[j] <= pivot {
-			s.swap(i, j)
-			i++
-		}
-	}
-	s.swap(q, i)
-	return i
-}
-
-func (s aggregativeBufferItems) qsort(start uint32, end uint32) {
-	if start >= end {
-		return
-	}
-
-	pivot := (end + start) / 2
-	r := s.qsort_partition(start, end, pivot)
-	if r > start {
-		s.qsort(start, r-1)
-	}
-	s.qsort(r+1, end)
-}
-
-func (s *aggregativeBuffer) sortNative() {
-	s.data.qsort(0, s.filledSize)
-}
-
 func (s *aggregativeBuffer) sortBuiltin() {
-	sort.Slice(s.data[:], func(i, j int) bool{ return s.data[i] < s.data[j] })
+	sort.Slice(s.data[:s.filledSize], func(i, j int) bool { return s.data[i] < s.data[j] })
 }
 
 func (s *aggregativeBuffer) sort() {
 	if s.isSorted {
-		s.locker.Unlock()
 		return
 	}
-	s.sortNative()
+	s.sortBuiltin()
 	s.isSorted = true
 }
 
@@ -67,10 +31,10 @@ func (s *aggregativeBuffer) Sort() {
 }
 
 type aggregativeBuffer struct {
-	locker Spinlock
-	filledSize    uint32
-	data          aggregativeBufferItems
-	isSorted      bool
+	locker     Spinlock
+	filledSize uint32
+	data       aggregativeBufferItems
+	isSorted   bool
 }
 
 type metricCommonAggregativeShortBuf struct {
@@ -78,11 +42,14 @@ type metricCommonAggregativeShortBuf struct {
 }
 
 func (m *metricCommonAggregativeShortBuf) init(parent Metric, key string, tags AnyTags) {
-	m.doSlicer = m
 	m.metricCommonAggregative.init(parent, key, tags)
 	m.data.Current.AggregativeStatistics = newAggregativeStatisticsShortBuf()
 	m.data.Last.AggregativeStatistics = newAggregativeStatisticsShortBuf()
 	m.data.Total.AggregativeStatistics = newAggregativeStatisticsShortBuf()
+}
+
+func (m *metricCommonAggregativeShortBuf) NewAggregativeStatistics() AggregativeStatistics {
+	return newAggregativeStatisticsShortBuf()
 }
 
 type AggregativeStatisticsShortBuf struct {
@@ -119,6 +86,7 @@ func (s *AggregativeStatisticsShortBuf) GetPercentiles(percentiles []float64) []
 }
 
 func (s *AggregativeStatisticsShortBuf) ConsiderValue(v float64) {
+	s.locker.Lock()
 	s.tickID++
 	if s.filledSize < bufferSize {
 		s.data[s.filledSize] = v
@@ -138,6 +106,8 @@ func (s *AggregativeStatisticsShortBuf) ConsiderValue(v float64) {
 
 	s.data[randIdx] = v
 
+	s.isSorted = false
+
 	s.locker.Unlock()
 }
 
@@ -155,5 +125,9 @@ func (s *AggregativeStatisticsShortBuf) Set(value float64) {
 	s.locker.Unlock()
 }
 
-func (m *metricCommonAggregativeShortBuf) DoSlice() {
+func (s *AggregativeStatisticsShortBuf) MergeStatistics(oldSI AggregativeStatistics, count uint64) {
+	//oldS := oldSI.(*AggregativeStatisticsShortBuf)
+}
+
+func (s *AggregativeStatisticsShortBuf) NormalizeData(count uint64) {
 }
