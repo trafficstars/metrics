@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	valuesAmount       = iterationsRequiredPerSecond
+	valuesAmount       = iterationsRequiredPerSecond * 10
 	permittedDeviation = 1 / (1 - 0.99) / iterationsRequiredPerSecond
 )
 

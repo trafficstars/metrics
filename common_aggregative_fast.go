@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"fmt"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -37,16 +36,17 @@ func (m *metricCommonAggregativeFast) init(parent Metric, key string, tags AnyTa
 	m.doSlicer = m
 	m.metricCommonAggregative.init(parent, key, tags)
 	m.histories.ByPeriod = make([]*history, 0, len(m.aggregationPeriods))
-	for idx, period := range m.aggregationPeriods {
+	previousPeriod := AggregationPeriod{1}
+	for _, period := range m.aggregationPeriods {
 		hist := &history{}
-		if idx+1 < len(m.aggregationPeriods) {
-			nextPeriod := m.aggregationPeriods[idx+1]
-			if nextPeriod.Interval%period.Interval != 0 {
-				panic(fmt.Errorf("nextPeriod.Interval (%v) %% period.Interval (%v) != 0 (%v)", nextPeriod.Interval, period.Interval, nextPeriod.Interval%period.Interval))
-			}
-			hist.storage = make([]*AggregativeValue, nextPeriod.Interval/period.Interval)
+		if period.Interval%previousPeriod.Interval != 0 {
+			// TODO: print error
+			//panic(fmt.Errorf("period.Interval (%v) %% previousPeriod.Interval (%v) != 0 (%v)", period.Interval, previousPeriod.Interval, period.Interval%previousPeriod.Interval))
 		}
+		hist.storage = make([]*AggregativeValue, period.Interval/previousPeriod.Interval)
+
 		m.histories.ByPeriod = append(m.histories.ByPeriod, hist)
+		previousPeriod = period
 	}
 	m.data.Current.AggregativeStatistics = newAggregativeStatisticsFast()
 	m.data.Last.AggregativeStatistics = newAggregativeStatisticsFast()
@@ -112,7 +112,6 @@ func (m *metricCommonAggregativeFast) considerValue(v float64) {
 		data.Count++
 		data.Unlock()
 	}
-
 
 	appendData((*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Current)))))
 	appendData((*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Total)))))
@@ -238,21 +237,19 @@ func (m *metricCommonAggregativeFast) considerFilledValue(filledValue *Aggregati
 		h.storage[h.currentOffset] = newValue
 	}
 
-	(*AggregativeValue)(atomic.SwapPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.ByPeriod[0])), (unsafe.Pointer)(filledValue))).Release()
+	atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.ByPeriod[0])), (unsafe.Pointer)(filledValue))
 	rotateHistory(m.histories.ByPeriod[0])
 	updateLastHistoryRecord(m.histories.ByPeriod[0], filledValue)
 
-	if len(m.aggregationPeriods) > 1 {
-		for lIdx, aggregationPeriod := range m.aggregationPeriods[1:] {
-			idx := lIdx + 1
-			newValue := m.calculateValue(m.histories.ByPeriod[idx-1])
-			(*AggregativeValue)(atomic.SwapPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.ByPeriod[idx])), (unsafe.Pointer)(newValue))).Release()
-			if tick%aggregationPeriod.Interval == 0 {
-				rotateHistory(m.histories.ByPeriod[idx])
-			}
-			if idx+1 < len(m.histories.ByPeriod) {
-				updateLastHistoryRecord(m.histories.ByPeriod[idx], newValue)
-			}
+	for lIdx, aggregationPeriod := range m.aggregationPeriods {
+		idx := lIdx + 1
+		newValue := m.calculateValue(m.histories.ByPeriod[idx-1])
+		atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.ByPeriod[idx])), (unsafe.Pointer)(newValue))
+		if tick%aggregationPeriod.Interval == 0 {
+			rotateHistory(m.histories.ByPeriod[idx])
+		}
+		if idx < len(m.histories.ByPeriod) {
+			updateLastHistoryRecord(m.histories.ByPeriod[idx], newValue)
 		}
 	}
 }

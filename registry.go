@@ -196,7 +196,7 @@ func (m *MetricsRegistry) Set(metric Metric) error {
 
 func (m *MetricsRegistry) list() (result []Metric) {
 	for _, metricKey := range m.storage.Keys() {
-		metric, _ := m.storage.Get(metricKey)
+		metric, _ := m.storage.GetByBytes(metricKey.([]byte))
 		if metric == nil {
 			continue
 		}
@@ -208,7 +208,9 @@ func (m *MetricsRegistry) list() (result []Metric) {
 func (m *MetricsRegistry) listSorted() (result []Metric) {
 	list := m.list()
 	sort.Slice(list, func(i, j int) bool {
-		if string(list[i].(interface{ GetKey() []byte }).GetKey()) < string(list[j].(interface{ GetKey() []byte }).GetKey()) {
+		if bytes.Compare(
+			list[i].(interface{ GetKey() []byte }).GetKey(),
+			list[j].(interface{ GetKey() []byte }).GetKey()) < 0 {
 			return true
 		}
 		return false

@@ -65,7 +65,6 @@ type aggregationPeriodsT struct {
 var (
 	aggregationPeriods = aggregationPeriodsT{
 		s: []AggregationPeriod{
-			{1},
 			{5},
 			{60},
 			{300},
@@ -170,9 +169,10 @@ func (metric *metricCommonAggregative) init(parent Metric, key string, tags AnyT
 	metric.data.Last = NewAggregativeValue()
 	metric.data.Current = NewAggregativeValue()
 	metric.data.Total = NewAggregativeValue()
-	metric.data.ByPeriod = make([]*AggregativeValue, 0, len(metric.aggregationPeriods))
+	metric.data.ByPeriod = make([]*AggregativeValue, 0, len(metric.aggregationPeriods)+1)
+	metric.data.ByPeriod = append(metric.data.ByPeriod, NewAggregativeValue()) // no aggregation, yet
 	for range metric.aggregationPeriods {
-		metric.data.ByPeriod = append(metric.data.ByPeriod, NewAggregativeValue())
+		metric.data.ByPeriod = append(metric.data.ByPeriod, NewAggregativeValue()) // aggregated ones
 	}
 	metric.metricCommon.init(parent, key, tags, func() bool { return atomic.LoadUint64(&metric.data.ByPeriod[0].Count) == 0 })
 }
