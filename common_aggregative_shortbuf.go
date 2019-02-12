@@ -7,7 +7,7 @@ import (
 
 const (
 	// Buffer size. The more this buffer the more CPU is utilized and more precise values are.
-	bufferSize = 1000
+	bufferSize = 10000
 )
 
 type aggregativeBufferItems [bufferSize]float64
@@ -60,12 +60,11 @@ type AggregativeStatisticsShortBuf struct {
 
 func (s *AggregativeStatisticsShortBuf) getPercentile(percentile float64) *float64 {
 	if s.filledSize == 0 {
-		s.locker.Unlock()
-		return nil
+		return &[]float64{0}[0]
 	}
 	s.sort()
 	percentileIdx := int(float64(s.filledSize) * percentile)
-	return (*float64)(&s.data[percentileIdx])
+	return &[]float64{s.data[percentileIdx]}[0]
 }
 
 func (s *AggregativeStatisticsShortBuf) GetPercentile(percentile float64) *float64 {
@@ -85,14 +84,12 @@ func (s *AggregativeStatisticsShortBuf) GetPercentiles(percentiles []float64) []
 	return r
 }
 
-func (s *AggregativeStatisticsShortBuf) ConsiderValue(v float64) {
-	s.locker.Lock()
+func (s *AggregativeStatisticsShortBuf) considerValue(v float64) {
 	s.tickID++
 	if s.filledSize < bufferSize {
 		s.data[s.filledSize] = v
 		s.filledSize++
 
-		s.locker.Unlock()
 		return
 	}
 
@@ -100,14 +97,17 @@ func (s *AggregativeStatisticsShortBuf) ConsiderValue(v float64) {
 	// That's why here's rand.Intn(s.tickID) instead of rand.Intn(bufferSize)
 	randIdx := rand.Intn(int(s.tickID))
 	if randIdx >= bufferSize {
-		s.locker.Unlock()
 		return
 	}
 
 	s.data[randIdx] = v
 
 	s.isSorted = false
+}
 
+func (s *AggregativeStatisticsShortBuf) ConsiderValue(v float64) {
+	s.locker.Lock()
+	s.considerValue(v)
 	s.locker.Unlock()
 }
 
@@ -125,9 +125,31 @@ func (s *AggregativeStatisticsShortBuf) Set(value float64) {
 	s.locker.Unlock()
 }
 
-func (s *AggregativeStatisticsShortBuf) MergeStatistics(oldSI AggregativeStatistics, count uint64) {
-	//oldS := oldSI.(*AggregativeStatisticsShortBuf)
-}
+func (s *AggregativeStatisticsShortBuf) MergeStatistics(oldSI AggregativeStatistics) {
+	oldS := oldSI.(*AggregativeStatisticsShortBuf)
 
-func (s *AggregativeStatisticsShortBuf) NormalizeData(count uint64) {
+	if s.filledSize+oldS.filledSize <= bufferSize {
+		copy(s.data[s.filledSize:], oldS.data[:oldS.filledSize])
+		s.filledSize += oldS.filledSize
+		s.tickID += oldS.tickID
+		// nothing overlaps, done
+		return
+	}
+
+	origFilledSize := s.filledSize
+	if s.filledSize < bufferSize {
+		delta := bufferSize - s.filledSize
+		copy(s.data[s.filledSize:], oldS.data[oldS.filledSize-delta:])
+		s.filledSize = bufferSize
+		oldS.filledSize -= delta
+	}
+
+	ratio := float64(oldS.tickID) / float64(s.tickID+oldS.tickID)
+	for _, value := range oldS.data[:oldS.filledSize] {
+		if ratio > rand.Float64() {
+			s.data[rand.Intn(int(origFilledSize))] = value
+		}
+	}
+
+	s.tickID += oldS.tickID
 }

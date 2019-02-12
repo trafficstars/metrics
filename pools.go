@@ -15,6 +15,11 @@ var (
 			return &MetricGaugeAggregative{}
 		},
 	}
+	metricGaugeAggregativeFlowPool = &sync.Pool{
+		New: func() interface{} {
+			return &MetricGaugeAggregativeFlow{}
+		},
+	}
 	metricGaugeFloat64Pool = &sync.Pool{
 		New: func() interface{} {
 			return &MetricGaugeFloat64{}
@@ -38,6 +43,11 @@ var (
 	metricTimingPool = &sync.Pool{
 		New: func() interface{} {
 			return &MetricTiming{}
+		},
+	}
+	metricTimingFlowPool = &sync.Pool{
+		New: func() interface{} {
+			return &MetricTimingFlow{}
 		},
 	}
 	aggregativeValuePool = &sync.Pool{

@@ -113,20 +113,14 @@ func (s *AggregativeStatisticsFlow) Set(value float64) {
 	s.Per99.Set(value)
 }
 
-func (s *AggregativeStatisticsFlow) MergeStatistics(oldSI AggregativeStatistics, count uint64) {
+func (s *AggregativeStatisticsFlow) MergeStatistics(oldSI AggregativeStatistics) {
 	oldS := oldSI.(*AggregativeStatisticsFlow)
-	s.Per1.SetFast(s.Per1.GetFast() + oldS.Per1.GetFast()*float64(count))
-	s.Per10.SetFast(s.Per10.GetFast() + oldS.Per10.GetFast()*float64(count))
-	s.Per50.SetFast(s.Per50.GetFast() + oldS.Per50.GetFast()*float64(count))
-	s.Per90.SetFast(s.Per90.GetFast() + oldS.Per90.GetFast()*float64(count))
-	s.Per99.SetFast(s.Per99.GetFast() + oldS.Per99.GetFast()*float64(count))
-}
 
-func (s *AggregativeStatisticsFlow) NormalizeData(count uint64) {
-	// it seems to be incorrent, but I don't see other fast way to calculate it, yet
-	s.Per1.SetFast(s.Per1.GetFast() / float64(count))
-	s.Per10.SetFast(s.Per10.GetFast() / float64(count))
-	s.Per50.SetFast(s.Per50.GetFast() / float64(count))
-	s.Per90.SetFast(s.Per90.GetFast() / float64(count))
-	s.Per99.SetFast(s.Per99.GetFast() / float64(count))
+	s.Per1.SetFast((s.Per1.GetFast()*float64(s.tickID) + oldS.Per1.GetFast()*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID))
+	s.Per10.SetFast((s.Per10.GetFast()*float64(s.tickID) + oldS.Per10.GetFast()*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID))
+	s.Per50.SetFast((s.Per50.GetFast()*float64(s.tickID) + oldS.Per50.GetFast()*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID))
+	s.Per90.SetFast((s.Per90.GetFast()*float64(s.tickID) + oldS.Per90.GetFast()*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID))
+	s.Per99.SetFast((s.Per99.GetFast()*float64(s.tickID) + oldS.Per99.GetFast()*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID))
+
+	s.tickID += oldS.tickID
 }

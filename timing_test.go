@@ -48,7 +48,12 @@ func TestGuessPercentile(t *testing.T) {
 	}
 }
 
-func fillStats(metric *MetricTiming) {
+func fillStats(metric interface {
+	Run(time.Duration)
+	ConsiderValue(time.Duration)
+	DoSlice()
+	Stop()
+}) {
 	metric.Run(5 * time.Second)
 	metric.ConsiderValue(time.Nanosecond * 5000)
 	metric.DoSlice()
@@ -80,27 +85,36 @@ func fillStats(metric *MetricTiming) {
 	metric.Stop()
 }
 
-func TestTiming(t *testing.T) {
-	metric := Timing(`test`, nil)
-	fillStats(metric)
-
-	values := metric.GetValuePointers()
+func checkValues(t *testing.T, values *AggregativeValues) {
 	assert.Equal(t, uint64(500000), uint64(values.Last.Avg.Get()))
 	assert.Equal(t, uint64(20), values.ByPeriod[0].Count)
 	assert.Equal(t, uint64(3000), uint64(values.ByPeriod[0].Min.Get()))
 	assert.Equal(t, uint64(500), uint64((values.ByPeriod[0].Avg.Get()+5)/10))
 	assert.Equal(t, uint64(5), uint64((*values.ByPeriod[0].AggregativeStatistics.GetPercentile(0.5)+500)/1000))
 	assert.Equal(t, uint64(7), uint64((*values.ByPeriod[0].AggregativeStatistics.GetPercentile(0.99)+999)/1000))
+	assert.Equal(t, uint64(7), uint64((*values.ByPeriod[1].AggregativeStatistics.GetPercentile(0.99)+999)/1000))
 	assert.Equal(t, uint64(7000), uint64(values.ByPeriod[0].Max.Get()))
 	assert.Equal(t, uint64(23), values.ByPeriod[1].Count)
 	assert.Equal(t, uint64(3000), uint64(values.ByPeriod[1].Min.Get()))
-	assert.Equal(t, *values.ByPeriod[3], *values.ByPeriod[2])
-	assert.Equal(t, *values.ByPeriod[3], *values.ByPeriod[4])
-	assert.Equal(t, *values.ByPeriod[3], *values.ByPeriod[5])
+	assert.Equal(t, values.ByPeriod[3].String(), values.ByPeriod[2].String())
+	assert.Equal(t, values.ByPeriod[3].String(), values.ByPeriod[4].String())
+	assert.Equal(t, values.ByPeriod[3].String(), values.ByPeriod[5].String())
 	assert.Equal(t, uint64(24), values.Total.Count)
 	assert.Equal(t, uint64(3000), uint64(values.Total.Min.Get()))
 	assert.Equal(t, uint64(2), uint64(values.Total.Avg.Get()/10000))
 	assert.Equal(t, uint64(500000), uint64(values.Total.Max.Get()))
+}
+
+func TestTiming(t *testing.T) {
+	metric := Timing(`test`, nil)
+	fillStats(metric)
+	checkValues(t, metric.GetValuePointers())
+}
+
+func TestTimingFast(t *testing.T) {
+	metric := TimingFlow(`test`, nil)
+	fillStats(metric)
+	checkValues(t, metric.GetValuePointers())
 }
 
 func BenchmarkTimingFillStats(b *testing.B) {

@@ -32,8 +32,7 @@ type AggregativeStatistics interface {
 
 	Release()
 
-	MergeStatistics(AggregativeStatistics, uint64)
-	NormalizeData(uint64)
+	MergeStatistics(AggregativeStatistics)
 }
 
 // SetSlicerInterval affects only new metrics (it doesn't affect already created one). You may use function `Reset()` to "update" configuration of all metrics.
@@ -166,11 +165,6 @@ func (m *metricCommonAggregative) init(parent Metric, key string, tags AnyTags) 
 	m.data.Last = NewAggregativeValue()
 	m.data.Current = NewAggregativeValue()
 	m.data.Total = NewAggregativeValue()
-	m.data.ByPeriod = make([]*AggregativeValue, 0, len(m.aggregationPeriods)+1)
-	m.data.ByPeriod = append(m.data.ByPeriod, NewAggregativeValue()) // no aggregation, yet
-	for range m.aggregationPeriods {
-		m.data.ByPeriod = append(m.data.ByPeriod, NewAggregativeValue()) // aggregated ones
-	}
 
 	m.histories.ByPeriod = make([]*history, 0, len(m.aggregationPeriods))
 	previousPeriod := AggregationPeriod{1}
@@ -187,6 +181,16 @@ func (m *metricCommonAggregative) init(parent Metric, key string, tags AnyTags) 
 	}
 
 	m.metricCommon.init(parent, key, tags, func() bool { return atomic.LoadUint64(&m.data.ByPeriod[0].Count) == 0 })
+
+	m.data.ByPeriod = make([]*AggregativeValue, 0, len(m.aggregationPeriods)+1)
+	v := NewAggregativeValue()
+	v.AggregativeStatistics = m.newAggregativeStatistics()
+	m.data.ByPeriod = append(m.data.ByPeriod, v) // no aggregation, yet
+	for range m.aggregationPeriods {
+		v := NewAggregativeValue()
+		v.AggregativeStatistics = m.newAggregativeStatistics()
+		m.data.ByPeriod = append(m.data.ByPeriod, v) // aggregated ones
+	}
 }
 
 func (m *metricCommonAggregative) considerValue(v float64) {
@@ -224,6 +228,21 @@ func (w *metricCommonAggregative) GetValuePointers() *AggregativeValues {
 	return &w.data
 }
 
+func (v *AggregativeValue) String() string {
+	percentiles := v.AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
+	return fmt.Sprintf(`{"count":%d,"min":%g,"per1":%g,"per10":%g,"per50":%g,"avg":%g,"per90":%g,"per99":%g,"max":%g}`,
+		atomic.LoadUint64(&v.Count),
+		v.Min.Get(),
+		*percentiles[0],
+		*percentiles[1],
+		*percentiles[2],
+		v.Avg.Get(),
+		*percentiles[3],
+		*percentiles[4],
+		v.Max.Get(),
+	)
+}
+
 func (metric *metricCommonAggregative) MarshalJSON() ([]byte, error) {
 	var jsonValues []string
 
@@ -231,18 +250,9 @@ func (metric *metricCommonAggregative) MarshalJSON() ([]byte, error) {
 		if data.Count == 0 {
 			return
 		}
-		percentiles := data.AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
-		jsonValues = append(jsonValues, fmt.Sprintf(`"%v":{"count":%d,"min":%g,"per1":%g,"per10":%g,"per50":%g,"avg":%g,"per90":%g,"per99":%g,"max":%g}`,
+		jsonValues = append(jsonValues, fmt.Sprintf(`"%v":%v`,
 			label,
-			atomic.LoadUint64(&data.Count),
-			data.Min.Get(),
-			*percentiles[0],
-			*percentiles[1],
-			*percentiles[2],
-			data.Avg.Get(),
-			*percentiles[3],
-			*percentiles[4],
-			data.Max.Get(),
+			data.String(),
 		))
 	}
 
@@ -386,7 +396,7 @@ func (r *AggregativeValue) MergeData(e *AggregativeValue) {
 	count := e.Count
 	r.Count += count
 	r.Avg.SetFast(r.Avg.GetFast() + e.Avg.GetFast()*float64(count))
-	r.AggregativeStatistics.MergeStatistics(e.AggregativeStatistics, count)
+	r.AggregativeStatistics.MergeStatistics(e.AggregativeStatistics)
 }
 
 func (r *AggregativeValue) NormalizeData() {
@@ -396,7 +406,6 @@ func (r *AggregativeValue) NormalizeData() {
 	}
 
 	r.Avg.SetFast(r.Avg.GetFast() / float64(count))
-	r.AggregativeStatistics.NormalizeData(count)
 }
 
 func (m *metricCommonAggregative) considerFilledValue(filledValue *AggregativeValue) {
@@ -419,12 +428,14 @@ func (m *metricCommonAggregative) considerFilledValue(filledValue *AggregativeVa
 	for lIdx, aggregationPeriod := range m.aggregationPeriods {
 		idx := lIdx + 1
 		newValue := m.calculateValue(m.histories.ByPeriod[idx-1])
-		atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.ByPeriod[idx])), (unsafe.Pointer)(newValue))
+		oldValue := (*AggregativeValue)(atomic.SwapPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.ByPeriod[idx])), (unsafe.Pointer)(newValue)))
 		if idx < len(m.histories.ByPeriod) {
 			if tick%aggregationPeriod.Interval == 0 {
 				rotateHistory(m.histories.ByPeriod[idx])
 			}
 			updateLastHistoryRecord(m.histories.ByPeriod[idx], newValue)
+		} else {
+			oldValue.Release()
 		}
 	}
 }
