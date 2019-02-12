@@ -11,6 +11,7 @@ type metricCommonInt64 struct {
 }
 
 func (m *metricCommonInt64) init(parent Metric, key string, tags AnyTags) {
+	m.valuePtr = &[]int64{0}[0]
 	m.metricCommon.init(parent, key, tags, func() bool { return m.wasUseless() })
 }
 

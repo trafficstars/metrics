@@ -1,11 +1,11 @@
 package metrics
 
 import (
-	`runtime`
-	`sync/atomic`
-	`testing`
+	"runtime"
+	"sync/atomic"
+	"testing"
 
-	`github.com/stretchr/testify/assert`
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -93,11 +93,12 @@ func BenchmarkRegistryReal(b *testing.B) {
 }
 func BenchmarkAddToRegistryReal(b *testing.B) {
 	var i uint64
+	testTags[`i`] = &i
 	initDefaultTags()
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			testTags[`i`] = atomic.AddUint64(&i, 1)
+			atomic.StoreUint64(&i, 1)
 			GaugeInt64(`test_key`, testTags)
 		}
 	})
@@ -197,7 +198,7 @@ func TestTagsString(t *testing.T) {
 	initDefaultTags()
 	{
 		buf := generateStorageKey(TypeGaugeInt64, `testKey`, testTags)
-		assert.Equal(t, `testKey,defaultOneMoreTag=null,defaultTag0=0,defaultTagBool=false,defaultTagString=string,hello=world,server=idk,service=rotator,success=true,tag0=0,tag1=1,worker_id=-1`, buf.result.String())
+		assert.Equal(t, `testKey,defaultOneMoreTag=null,defaultTag0=0,defaultTagBool=false,defaultTagString=string,hello=world,server=idk,service=rotator,success=true,tag0=0,tag1=1,worker_id=-1@gauge_int64`, buf.result.String())
 		buf.Unlock()
 	}
 
@@ -208,7 +209,7 @@ func TestTagsString(t *testing.T) {
 		tags := Tags{`spot`: true}
 		considerHiddenTags(tags)
 		buf := generateStorageKey(TypeGaugeInt64, `testKey`, tags)
-		assert.Equal(t, `testKey,defaultOneMoreTag=null,defaultTag0=0,defaultTagBool=false,defaultTagString=string,spot=hidden`, buf.result.String())
+		assert.Equal(t, `testKey,defaultOneMoreTag=null,defaultTag0=0,defaultTagBool=false,defaultTagString=string,spot=hidden@gauge_int64`, buf.result.String())
 		buf.Unlock()
 	}
 }

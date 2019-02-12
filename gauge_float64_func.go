@@ -34,6 +34,7 @@ func (m *MetricGaugeFloat64Func) GetType() Type {
 }
 
 func (m *MetricGaugeFloat64Func) Release() {
+	*m = MetricGaugeFloat64Func{}
 	metricGaugeFloat64FuncPool.Put(m)
 }
 

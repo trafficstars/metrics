@@ -1,7 +1,7 @@
 package metrics
 
 import (
-	`testing`
+	"testing"
 )
 
 func TestTypes(t *testing.T) {

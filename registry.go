@@ -415,10 +415,13 @@ func (metricsRegistry *MetricsRegistry) Register(metric Metric, key string, inTa
 		tags[tag.Key] = tag.Value
 	}
 
+	commons := metric.(interface{ GetCommons() *metricCommon }).GetCommons()
+	commons.tags = tags
+
 	keyBuf := generateStorageKey(metric.GetType(), key, tags)
 	storageKey := keyBuf.result.String()
 	keyBuf.Unlock()
-	commons := metric.(interface{ GetCommons() *metricCommon }).GetCommons()
+
 	commons.storageKey = make([]byte, len(storageKey))
 	copy(commons.storageKey, storageKey)
 	return metricsRegistry.Set(metric)

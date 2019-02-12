@@ -108,7 +108,12 @@ func NewAggregativeValue() *AggregativeValue {
 // Release is an opposite to NewAggregativeValue and it saves the variable to a pool to a prevent memory allocation in future.
 // It's not necessary to call this method when you finished to work with an AggregativeValue, but recommended to (for better performance).
 func (v *AggregativeValue) Release() {
-	v.AggregativeStatistics.Release()
+	if v == nil {
+		return
+	}
+	if v.AggregativeStatistics != nil {
+		v.AggregativeStatistics.Release()
+	}
 	aggregativeValuePool.Put(v)
 }
 
@@ -158,6 +163,9 @@ type metricCommonAggregative struct {
 }
 
 func (metric *metricCommonAggregative) init(parent Metric, key string, tags AnyTags) {
+	metric.slicer = &metricCommonAggregativeSlicer{
+		metric: metric,
+	}
 	metric.aggregationPeriods = GetAggregationPeriods()
 	metric.data.Last = NewAggregativeValue()
 	metric.data.Current = NewAggregativeValue()
@@ -167,9 +175,6 @@ func (metric *metricCommonAggregative) init(parent Metric, key string, tags AnyT
 		metric.data.ByPeriod = append(metric.data.ByPeriod, NewAggregativeValue())
 	}
 	metric.metricCommon.init(parent, key, tags, func() bool { return atomic.LoadUint64(&metric.data.ByPeriod[0].Count) == 0 })
-	metric.slicer = &metricCommonAggregativeSlicer{
-		metric: metric,
-	}
 }
 
 func (w *metricCommonAggregative) GetValuePointers() *AggregativeValues {
@@ -233,7 +238,7 @@ func (m *metricCommonAggregative) Send(sender Sender) {
 	considerValue := func(label string, data *AggregativeValue) {
 		baseKey := string(m.storageKey) + `_` + label + `_`
 
-		sender.SendUint64( m.parent, baseKey+`count`, atomic.LoadUint64(&data.Count))
+		sender.SendUint64(m.parent, baseKey+`count`, atomic.LoadUint64(&data.Count))
 		sender.SendFloat64(m.parent, baseKey+`min`, data.Min.Get())
 		sender.SendFloat64(m.parent, baseKey+`per1`, *data.AggregativeStatistics.GetPercentile(0.01))
 		sender.SendFloat64(m.parent, baseKey+`per10`, *data.AggregativeStatistics.GetPercentile(0.1))

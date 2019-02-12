@@ -40,5 +40,6 @@ func (m *MetricTiming) GetType() Type {
 }
 
 func (m *MetricTiming) Release() {
+	*m = MetricTiming{}
 	metricTimingPool.Put(m)
 }

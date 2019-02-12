@@ -163,8 +163,8 @@ func (m *metricCommon) run(interval time.Duration) {
 	if m.IsRunning() {
 		return
 	}
-	iterationHandlers.Add(m)
 	m.interval = interval
+	iterationHandlers.Add(m)
 	atomic.StoreUint64(&m.uselessCounter, 0)
 	atomic.StoreUint64(&m.running, 1)
 	return
@@ -215,6 +215,10 @@ func (metric *metricCommon) MarshalJSON() ([]byte, error) {
 		string(typeJSON),
 	)
 	return []byte(metricJSON), nil
+}
+
+func (metric *metricCommon) GetCommons() *metricCommon {
+	return metric
 }
 
 // Placeholders

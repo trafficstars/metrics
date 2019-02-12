@@ -19,8 +19,8 @@ type iterationHandler struct {
 	sync.RWMutex
 
 	iterateInterval time.Duration
-	iterators []iterator
-	stopChan chan struct{}
+	iterators       []iterator
+	stopChan        chan struct{}
 }
 
 type iterationHandlersT struct {
@@ -36,9 +36,10 @@ var (
 	}
 )
 
-func newIteratorsIterationHandler() *iterationHandler {
-	iterationHandler := &iterationHandler{}
-	iterationHandler.start()
+func newIterationHandler() *iterationHandler {
+	iterationHandler := &iterationHandler{
+		stopChan: make(chan struct{}),
+	}
 	return iterationHandler
 }
 func (iterationHandler *iterationHandler) loop() {
@@ -68,7 +69,9 @@ func (iterationHandler *iterationHandler) start() {
 }
 
 func (iterationHandler *iterationHandler) stop() {
-	iterationHandler.stopChan <- struct{}{}
+	go func() {
+		iterationHandler.stopChan <- struct{}{}
+	}()
 }
 
 // Add add a metric to the iterationHandler. It will periodically call method Iterate() of the metric
@@ -92,7 +95,7 @@ func (iterationHandler *iterationHandler) Remove(removeIterator iterator) bool {
 			iterationHandler.iterators = nil
 			iterationHandler.stop()
 			mapKey := uint64(iterationHandler.iterateInterval.Nanoseconds())
-			iterationHandlers.m.(interface{LockUnset(interface{})error}).LockUnset(mapKey)
+			iterationHandlers.m.(interface{ LockUnset(atomicmap.Key) error }).LockUnset(mapKey)
 			iterationHandler.Unlock()
 			return true
 		}
@@ -133,8 +136,12 @@ func (iterationHandlers *iterationHandlersT) getOrCreateIterationHandler(iterato
 		iterationHandlers.Lock()
 		iterationHandler = iterationHandlers.getIterationHandler(iterator)
 		if iterationHandler == nil {
-			iterationHandler = newIteratorsIterationHandler()
+			iterationHandler = newIterationHandler()
 			iterationHandler.iterateInterval = iterator.GetInterval()
+			if iterationHandler.iterateInterval == time.Duration(0) {
+				return nil
+			}
+			iterationHandler.start()
 			iterationHandlers.m.Set(uint64(iterationHandler.iterateInterval.Nanoseconds()), iterationHandler)
 		}
 		iterationHandlers.Unlock()

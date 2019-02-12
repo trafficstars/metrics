@@ -42,12 +42,15 @@ func (m *metricCommonAggregativeFast) init(parent Metric, key string, tags AnyTa
 		if idx+1 < len(m.aggregationPeriods) {
 			nextPeriod := m.aggregationPeriods[idx+1]
 			if nextPeriod.Interval%period.Interval != 0 {
-				panic(fmt.Errorf("nextPeriod.Interval (%v) %% period.Interval (%v) != 0 (%v)", nextPeriod.Interval, period.Interval, nextPeriod.Interval % period.Interval))
+				panic(fmt.Errorf("nextPeriod.Interval (%v) %% period.Interval (%v) != 0 (%v)", nextPeriod.Interval, period.Interval, nextPeriod.Interval%period.Interval))
 			}
 			hist.storage = make([]*AggregativeValue, nextPeriod.Interval/period.Interval)
 		}
 		m.histories.ByPeriod = append(m.histories.ByPeriod, hist)
 	}
+	m.data.Current.AggregativeStatistics = newAggregativeStatisticsFast()
+	m.data.Last.AggregativeStatistics = newAggregativeStatisticsFast()
+	m.data.Total.AggregativeStatistics = newAggregativeStatisticsFast()
 }
 
 // this is so-so correct only for big amount of events (> iterationsRequiredPerSecond)
@@ -81,38 +84,39 @@ func (m *metricCommonAggregativeFast) considerValue(v float64) {
 
 	appendData := func(data *AggregativeValue) {
 		data.Lock()
-		count := atomic.LoadUint64(&data.Count)
-		if v < data.Min.Get() || count == 0 {
-			data.Min.Set(v)
+		count := data.Count
+		if count == 0 || v < data.Min.GetFast() {
+			data.Min.SetFast(v)
 		}
 
-		if v > data.Max.Get() || count == 0 {
-			data.Max.Set(v)
+		if count == 0 || v > data.Max.GetFast() {
+			data.Max.SetFast(v)
 		}
 
-		data.Avg.Set((data.Avg.Get()*float64(count) + v) / (float64(count) + 1))
+		data.Avg.SetFast((data.Avg.GetFast()*float64(count) + v) / (float64(count) + 1))
 		stat := data.AggregativeStatistics.(*AggregativeStatisticsFast)
 		if count == 0 {
-			stat.Per1.Set(v)
-			stat.Per10.Set(v)
-			stat.Per50.Set(v)
-			stat.Per90.Set(v)
-			stat.Per99.Set(v)
+			stat.Per1.SetFast(v)
+			stat.Per10.SetFast(v)
+			stat.Per50.SetFast(v)
+			stat.Per90.SetFast(v)
+			stat.Per99.SetFast(v)
 		} else {
-			stat.Per1.Set(guessPercentile(stat.Per1.Get(), v, count, 0.01))
-			stat.Per10.Set(guessPercentile(stat.Per10.Get(), v, count, 0.1))
-			stat.Per50.Set(guessPercentile(stat.Per50.Get(), v, count, 0.5))
-			stat.Per90.Set(guessPercentile(stat.Per90.Get(), v, count, 0.9))
-			stat.Per99.Set(guessPercentile(stat.Per99.Get(), v, count, 0.99))
+			stat.Per1.SetFast(guessPercentile(stat.Per1.GetFast(), v, count, 0.01))
+			stat.Per10.SetFast(guessPercentile(stat.Per10.GetFast(), v, count, 0.1))
+			stat.Per50.SetFast(guessPercentile(stat.Per50.GetFast(), v, count, 0.5))
+			stat.Per90.SetFast(guessPercentile(stat.Per90.GetFast(), v, count, 0.9))
+			stat.Per99.SetFast(guessPercentile(stat.Per99.GetFast(), v, count, 0.99))
 		}
 
-		atomic.AddUint64(&data.Count, 1)
+		data.Count++
 		data.Unlock()
 	}
 
-	appendData((*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(m.data.Current)))))
-	appendData((*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(m.data.Total)))))
-	(*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(m.data.Last)))).set(v)
+
+	appendData((*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Current)))))
+	appendData((*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Total)))))
+	(*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Last)))).set(v)
 
 }
 
@@ -156,12 +160,13 @@ func (s *AggregativeStatisticsFast) Set(value float64) {
 }
 
 func (s *AggregativeStatisticsFast) Release() {
+	s.Set(0)
 	aggregativeStatisticsFastPool.Put(s)
 }
 
 func newAggregativeStatisticsFast() *AggregativeStatisticsFast {
-	r := aggregativeStatisticsFastPool.Get().(*AggregativeStatisticsFast)
-	return r
+	s := aggregativeStatisticsFastPool.Get().(*AggregativeStatisticsFast)
+	return s
 }
 
 func (w *metricCommonAggregativeFast) calculateValue(h *history) (r *AggregativeValue) {
@@ -177,10 +182,10 @@ func (w *metricCommonAggregativeFast) calculateValue(h *history) (r *Aggregative
 
 	for depth > 0 {
 		e := h.storage[offset]
-		oldS := e.AggregativeStatistics.(*AggregativeStatisticsFast)
 		if e == nil {
 			break
 		}
+		oldS := e.AggregativeStatistics.(*AggregativeStatisticsFast)
 		depth--
 		offset--
 		if offset == ^uint32(0) { // analog of "offset == -1", but for unsigned integer
@@ -233,23 +238,28 @@ func (m *metricCommonAggregativeFast) considerFilledValue(filledValue *Aggregati
 		h.storage[h.currentOffset] = newValue
 	}
 
-	(*AggregativeValue)(atomic.SwapPointer((*unsafe.Pointer)((unsafe.Pointer)(m.data.ByPeriod[0])), (unsafe.Pointer)(filledValue))).Release()
+	(*AggregativeValue)(atomic.SwapPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.ByPeriod[0])), (unsafe.Pointer)(filledValue))).Release()
 	rotateHistory(m.histories.ByPeriod[0])
 	updateLastHistoryRecord(m.histories.ByPeriod[0], filledValue)
 
 	if len(m.aggregationPeriods) > 1 {
-		for idx, aggregationPeriod := range m.aggregationPeriods[1:] {
-			newValue := m.calculateValue(m.histories.ByPeriod[idx])
-			(*AggregativeValue)(atomic.SwapPointer((*unsafe.Pointer)((unsafe.Pointer)(m.data.ByPeriod[idx+1])), (unsafe.Pointer)(newValue))).Release()
+		for lIdx, aggregationPeriod := range m.aggregationPeriods[1:] {
+			idx := lIdx + 1
+			newValue := m.calculateValue(m.histories.ByPeriod[idx-1])
+			(*AggregativeValue)(atomic.SwapPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.ByPeriod[idx])), (unsafe.Pointer)(newValue))).Release()
 			if tick%aggregationPeriod.Interval == 0 {
-				rotateHistory(m.histories.ByPeriod[idx+1])
+				rotateHistory(m.histories.ByPeriod[idx])
 			}
-			updateLastHistoryRecord(m.histories.ByPeriod[idx+1], newValue)
+			if idx+1 < len(m.histories.ByPeriod) {
+				updateLastHistoryRecord(m.histories.ByPeriod[idx], newValue)
+			}
 		}
 	}
 }
 
 func (m *metricCommonAggregativeFast) DoSlice() {
-	filledValue := (*AggregativeValue)(atomic.SwapPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Current)), (unsafe.Pointer)(NewAggregativeValue())))
+	nextValue := NewAggregativeValue()
+	nextValue.AggregativeStatistics = newAggregativeStatisticsFast()
+	filledValue := (*AggregativeValue)(atomic.SwapPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Current)), (unsafe.Pointer)(nextValue)))
 	m.considerFilledValue(filledValue)
 }

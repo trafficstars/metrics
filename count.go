@@ -32,5 +32,6 @@ func (m *MetricCount) GetType() Type {
 }
 
 func (m *MetricCount) Release() {
+	*m = MetricCount{}
 	metricCountPool.Put(m)
 }

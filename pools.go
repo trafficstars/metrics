@@ -42,12 +42,18 @@ var (
 	}
 	aggregativeValuePool = &sync.Pool{
 		New: func() interface{} {
-			return &AggregationPeriod{}
+			return &AggregativeValue{}
 		},
 	}
 	aggregativeStatisticsFastPool = &sync.Pool{
 		New: func() interface{} {
-			return &AggregativeStatisticsFast{}
+			s := &AggregativeStatisticsFast{}
+			s.Per1.Pointer = &[]float64{0}[0]
+			s.Per10.Pointer = &[]float64{0}[0]
+			s.Per50.Pointer = &[]float64{0}[0]
+			s.Per90.Pointer = &[]float64{0}[0]
+			s.Per99.Pointer = &[]float64{0}[0]
+			return s
 		},
 	}
 )

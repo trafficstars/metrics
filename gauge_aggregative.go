@@ -40,5 +40,6 @@ func (m *MetricGaugeAggregative) GetType() Type {
 }
 
 func (m *MetricGaugeAggregative) Release() {
+	*m = MetricGaugeAggregative{}
 	metricGaugeAggregativePool.Put(m)
 }

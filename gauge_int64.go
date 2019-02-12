@@ -32,5 +32,6 @@ func (m *MetricGaugeInt64) GetType() Type {
 }
 
 func (m *MetricGaugeInt64) Release() {
+	*m = MetricGaugeInt64{}
 	metricGaugeInt64Pool.Put(m)
 }
