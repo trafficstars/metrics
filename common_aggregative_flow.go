@@ -114,6 +114,9 @@ func (s *AggregativeStatisticsFlow) Set(value float64) {
 }
 
 func (s *AggregativeStatisticsFlow) MergeStatistics(oldSI AggregativeStatistics) {
+	if oldSI == nil {
+		return
+	}
 	oldS := oldSI.(*AggregativeStatisticsFlow)
 
 	s.Per1.SetFast((s.Per1.GetFast()*float64(s.tickID) + oldS.Per1.GetFast()*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID))

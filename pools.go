@@ -80,6 +80,14 @@ var (
 			return &AggregativeStatisticsShortBuf{}
 		},
 	}
+	iterationHandlerPool = &sync.Pool{
+		New: func() interface{} {
+			iterationHandler := &iterationHandler{
+				stopChan: make(chan struct{}),
+			}
+			return iterationHandler
+		},
+	}
 )
 
 func (s *AggregativeStatisticsShortBuf) Release() {
@@ -206,4 +214,15 @@ func (m *MetricGaugeFloat64) Release() {
 	}
 	*m = MetricGaugeFloat64{}
 	metricGaugeFloat64Pool.Put(m)
+}
+
+func newIterationHandler() *iterationHandler {
+	return iterationHandlerPool.Get().(*iterationHandler)
+}
+
+func (m *iterationHandler) Release() {
+	if !memoryReuse {
+		return
+	}
+	iterationHandlerPool.Put(m)
 }

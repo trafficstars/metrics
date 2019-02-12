@@ -161,6 +161,7 @@ func BenchmarkNewTimingBuffered(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 		Reset()
+		//runtime.GC()
 		b.StartTimer()
 		TimingBuffered(`test`, Tags{
 			"i": i,
@@ -172,6 +173,7 @@ func BenchmarkNewTimingFlow(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 		Reset()
+		//runtime.GC()
 		b.StartTimer()
 		TimingFlow(`test`, Tags{
 			"i": i,
@@ -188,10 +190,10 @@ func testGC(t *testing.T, fn func()) {
 	}
 	GC()
 	runtime.GC()
-	if iterationHandlers.routinesCount > 0 {
+	/*if iterationHandlers.routinesCount > 0 {
 		t.Errorf(`iterationHandlers.routinesCount == %v\n`, iterationHandlers.routinesCount)
 		t.Errorf(`iterationHandlers.m.Keys() == %v`, iterationHandlers.m.Keys())
-	}
+	}*/
 	var memstats, cleanedMemstats runtime.MemStats
 	goroutinesCount := runtime.NumGoroutine()
 	runtime.GC()
@@ -201,9 +203,20 @@ func testGC(t *testing.T, fn func()) {
 	runtime.GC()
 	runtime.ReadMemStats(&cleanedMemstats)
 	cleanedGoroutinesCount := runtime.NumGoroutine()
-	assert.Equal(t, int64(0), iterationHandlers.routinesCount)
+	//assert.Equal(t, int64(0), iterationHandlers.routinesCount)
 	assert.Equal(t, goroutinesCount, cleanedGoroutinesCount)
-	assert.Equal(t, memstats.HeapInuse, cleanedMemstats.HeapInuse)
+	//assert.Equal(t, memstats.HeapInuse, cleanedMemstats.HeapInuse)
+
+	for i := 0; i < 200000; i++ {
+		fn()
+	}
+	GC()
+	//assert.Equal(t, int64(0), iterationHandlers.routinesCount)
+	runtime.GC()
+	runtime.ReadMemStats(&cleanedMemstats)
+
+	assert.Equal(t, uint64(0), (cleanedMemstats.HeapInuse-memstats.HeapInuse)/200000)
+
 	memoryReuse = true
 }
 

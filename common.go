@@ -41,12 +41,13 @@ func (metric *metricCommon) init(parent Metric, key string, tags AnyTags, getWas
 	metric.SetGCEnabled(GetDefaultGCEnabled())
 
 	metricsRegistry.Register(parent, key, tags)
-	if GetDefaultIsRunned() {
-		parent.Run(GetDefaultIterateInterval())
-	}
 
 	metric.getWasUseless = getWasUseless
 	metric.metricRegistryItem.init(parent)
+
+	if GetDefaultIsRunned() {
+		parent.Run(GetDefaultIterateInterval())
+	}
 }
 
 func (m *metricCommon) getIsSenderSet() bool {

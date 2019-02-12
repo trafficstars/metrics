@@ -38,12 +38,6 @@ var (
 	}
 )
 
-func newIterationHandler() *iterationHandler {
-	iterationHandler := &iterationHandler{
-		stopChan: make(chan struct{}),
-	}
-	return iterationHandler
-}
 func (iterationHandler *iterationHandler) loop() {
 	ticker := time.NewTicker(iterationHandler.iterateInterval * time.Nanosecond)
 	for {
@@ -101,13 +95,11 @@ func (iterationHandler *iterationHandler) Remove(removeIterator iterator) (resul
 	if len(iterationHandler.iterators) == 1 {
 		if iterationHandler.iterators[0] == removeIterator {
 			iterationHandler.iterators = nil
-			iterationHandler.stop()
-			mapKey := uint64(iterationHandler.iterateInterval.Nanoseconds())
-			iterationHandlers.m.(interface{ LockUnset(atomicmap.Key) error }).LockUnset(mapKey)
-			/*if err := iterationHandlers.m.(interface{ LockUnset(atomicmap.Key) error }).LockUnset(mapKey); err != nil {
-				panic(err)
-			}*/
+			//iterationHandler.stop()
+			//mapKey := uint64(iterationHandler.iterateInterval.Nanoseconds())
+			//iterationHandlers.m.(interface{ LockUnset(atomicmap.Key) error }).LockUnset(mapKey)
 			iterationHandler.Unlock()
+			//iterationHandler.Release()
 			return true
 		}
 		iterationHandler.Unlock()

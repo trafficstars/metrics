@@ -182,7 +182,7 @@ func (m *metricCommonAggregative) init(parent Metric, key string, tags AnyTags) 
 		previousPeriod = period
 	}
 
-	m.metricCommon.init(parent, key, tags, func() bool { return atomic.LoadUint64(&m.data.ByPeriod[0].Count) == 0 })
+	m.parent = parent
 
 	m.data.ByPeriod = make([]*AggregativeValue, 0, len(m.aggregationPeriods)+1)
 	v := NewAggregativeValue()
@@ -193,6 +193,8 @@ func (m *metricCommonAggregative) init(parent Metric, key string, tags AnyTags) 
 		v.AggregativeStatistics = m.newAggregativeStatistics()
 		m.data.ByPeriod = append(m.data.ByPeriod, v) // aggregated ones
 	}
+
+	m.metricCommon.init(parent, key, tags, func() bool { return atomic.LoadUint64(&m.data.ByPeriod[0].Count) == 0 })
 }
 
 func (m *metricCommonAggregative) considerValue(v float64) {
