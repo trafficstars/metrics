@@ -56,7 +56,7 @@ func BenchmarkGenerateStorageKey(b *testing.B) {
 		for pb.Next() {
 			buf := generateStorageKey(TypeCount, `test`, nil)
 			if buf != nil {
-				buf.Unlock()
+				buf.Release()
 			}
 		}
 	})
@@ -134,7 +134,7 @@ func BenchmarkTagsString(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			buf := generateStorageKey(TypeGaugeInt64, `testKey`, testTags)
-			buf.Unlock()
+			buf.Release()
 		}
 	})
 }
@@ -146,7 +146,7 @@ func BenchmarkTagsFastString(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			buf := generateStorageKey(TypeGaugeInt64, `testKey`, testTagsFast)
-			buf.Unlock()
+			buf.Release()
 		}
 	})
 }
@@ -199,7 +199,7 @@ func TestTagsString(t *testing.T) {
 	{
 		buf := generateStorageKey(TypeGaugeInt64, `testKey`, testTags)
 		assert.Equal(t, `testKey,defaultOneMoreTag=null,defaultTag0=0,defaultTagBool=false,defaultTagString=string,hello=world,server=idk,service=rotator,success=true,tag0=0,tag1=1,worker_id=-1@gauge_int64`, buf.result.String())
-		buf.Unlock()
+		buf.Release()
 	}
 
 	{
@@ -210,6 +210,6 @@ func TestTagsString(t *testing.T) {
 		considerHiddenTags(tags)
 		buf := generateStorageKey(TypeGaugeInt64, `testKey`, tags)
 		assert.Equal(t, `testKey,defaultOneMoreTag=null,defaultTag0=0,defaultTagBool=false,defaultTagString=string,spot=hidden@gauge_int64`, buf.result.String())
-		buf.Unlock()
+		buf.Release()
 	}
 }

@@ -83,37 +83,30 @@ type preallocatedStringerBuffer struct {
 	tagKeys sort.StringSlice
 }
 
-func (buf *preallocatedStringerBuffer) Lock() {
-	for !atomic.CompareAndSwapInt32(&buf.locker, 0, 1) {
-		runtime.Gosched()
+var (
+	stringBufferPool = sync.Pool{
+		New: func() interface{} {
+			return &preallocatedStringerBuffer{}
+		},
 	}
+)
+
+func newStringBuffer() *preallocatedStringerBuffer {
+	return stringBufferPool.Get().(*preallocatedStringerBuffer)
 }
 
-func (buf *preallocatedStringerBuffer) Unlock() {
-	atomic.AddInt32(&buf.locker, -1)
+func (b *preallocatedStringerBuffer) Release() {
+	b.result.Reset()
+	stringBufferPool.Put(b)
 }
 
-type preallocatedGetterBuffer struct {
+/*type preallocatedGetterBuffer struct {
 	sync.Mutex
 	pc     []uintptr
 	result bytes.Buffer
-}
-
-var (
-	stringerBufs       [maxConcurrency]*preallocatedStringerBuffer
-	stringerBufPointer uint64
-
-/*	getterBufs       [maxConcurrency]*preallocatedGetterBuffer
-	getterBufPointer uint64*/
-)
+}*/
 
 func init() {
-	for i := 0; i < maxConcurrency; i++ {
-		stringerBufs[i] = &preallocatedStringerBuffer{}
-		/*getterBufs[i] = &preallocatedGetterBuffer{
-			pc: make([]uintptr, 8),
-		}*/
-	}
 	SetDefaultGCEnabled(true)
 	SetDefaultIsRunned(true)
 }
@@ -144,7 +137,7 @@ func (m *MetricsRegistry) get(metricType Type, key string, tags AnyTags) Metric 
 	considerHiddenTags(tags)
 	storageKeyBuf := generateStorageKey(metricType, key, tags)
 	rI, _ := m.storage.GetByBytes(storageKeyBuf.result.Bytes())
-	storageKeyBuf.Unlock()
+	storageKeyBuf.Release()
 	if rI == nil {
 		return nil
 	}
@@ -415,7 +408,7 @@ func (metricsRegistry *MetricsRegistry) Register(metric Metric, key string, inTa
 
 	keyBuf := generateStorageKey(metric.GetType(), key, tags)
 	storageKey := keyBuf.result.String()
-	keyBuf.Unlock()
+	keyBuf.Release()
 
 	commons.storageKey = make([]byte, len(storageKey))
 	copy(commons.storageKey, storageKey)
@@ -475,15 +468,8 @@ func considerHiddenTags(tags AnyTags) {
 
 func generateStorageKey(metricType Type, key string, tags AnyTags) *preallocatedStringerBuffer {
 	// It's required to avoid memory allocations. So if we allocated a buffer once, we reuse it.
-	// We have buffers (of amount maxConcurrency) to be able to process this function concurrently.
 
-	curBufPointer := atomic.AddUint64(&stringerBufPointer, 1)
-	curBufPointer %= maxConcurrency
-	buf := stringerBufs[curBufPointer]
-	buf.Lock()
-
-	buf.result.Reset()
-
+	buf := newStringBuffer()
 	buf.result.WriteString(key)
 
 	for _, tag := range defaultTags {
