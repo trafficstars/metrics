@@ -1,5 +1,9 @@
 package metrics
 
+import (
+	"sync/atomic"
+)
+
 type MetricGaugeInt64 struct {
 	metricCommonInt64
 }
@@ -29,4 +33,11 @@ func GaugeInt64(key string, tags AnyTags) *MetricGaugeInt64 {
 
 func (m *MetricGaugeInt64) GetType() Type {
 	return TypeGaugeInt64
+}
+
+func (m *MetricGaugeInt64) Decrement() int64 {
+	if m == nil {
+		return 0
+	}
+	return atomic.AddInt64(m.valuePtr, -1)
 }
