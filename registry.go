@@ -40,7 +40,7 @@ type MetricsRegistry struct {
 	metricSender             Sender
 	metricsIterateIntervaler MetricsIterateIntervaler
 	monitorState             uint64
-	hiddenTags               *[]string
+	hiddenTags               *hiddenTagInternal
 	defaultGCEnabled         uint32
 	defaultIsRunned          uint32
 }
@@ -445,20 +445,21 @@ func considerHiddenTags(tags AnyTags) {
 	switch inTags := tags.(type) {
 	case nil:
 	case Tags:
-		for k, _ := range inTags {
-			if IsHiddenTag(k) {
+		for k, v := range inTags {
+			if IsHiddenTag(k, v) {
 				inTags.Set(k, hiddenTagValue)
 			}
 		}
 	case *FastTags:
+		panic(`Fast tags are not supported together with hidden tags, yet`)
 		for _, tag := range *inTags {
-			if IsHiddenTag(tag.Key) {
+			if IsHiddenTag(tag.Key, tag.Value) {
 				tag.Value = hiddenTagValue
 			}
 		}
 	default:
 		inTags.Each(func(k string, v interface{}) bool {
-			if IsHiddenTag(k) {
+			if IsHiddenTag(k, v) {
 				inTags.Set(k, hiddenTagValue)
 			}
 			return true
@@ -567,34 +568,56 @@ func SetDefaultTags(newDefaultAnyTags AnyTags) {
 	defaultTags = *newDefaultAnyTags.ToFastTags()
 }
 
-func (m *MetricsRegistry) GetHiddenTags() []string {
+func (m *MetricsRegistry) getHiddenTags() hiddenTagsInternal {
 	result := atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.hiddenTags)))
 	if result == nil {
 		return nil
 	}
-	return *(*[]string)(result)
+	return *(*hiddenTagsInternal)(result)
 }
 
-func (m *MetricsRegistry) SetHiddenTags(newHiddenTags []string) {
+func (m *MetricsRegistry) SetHiddenTags(newRawHiddenTags HiddenTags) {
+	var newHiddenTags hiddenTagsInternal
+	if len(newRawHiddenTags) == 0 {
+		newHiddenTags = nil
+	} else {
+		newHiddenTags = make(hiddenTagsInternal, 0, len(newRawHiddenTags))
+		for _, rawHiddenTag := range newRawHiddenTags {
+			newHiddenTags = append(newHiddenTags, *rawHiddenTag.toInternal())
+		}
+		newHiddenTags.Sort()
+	}
 	atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&m.hiddenTags)), (unsafe.Pointer)(&newHiddenTags))
 }
 
-func (m *MetricsRegistry) IsHiddenTag(tagKey string) bool {
-	hiddenTags := m.GetHiddenTags()
-	l := len(hiddenTags)
-	idx := sort.Search(l, func(i int) bool {
-		return hiddenTags[i] >= tagKey
-	})
-
-	if idx < 0 || idx >= l {
+func (m *MetricsRegistry) IsHiddenTag(tagKey string, tagValue interface{}) bool {
+	hiddenTags := m.getHiddenTags()
+	idx := hiddenTags.Search(tagKey)
+	if idx < 0 {
 		return false
 	}
 
-	if hiddenTags[idx] != tagKey {
-		return false
+	hiddenTag := &hiddenTags[idx]
+
+	if !hiddenTag.HasExceptValues() {
+		return true
 	}
 
-	return true
+	var i int64
+	var s string
+	if intV, ok := toInt64(tagValue); ok {
+		if !hiddenTag.HasExceptInts() {
+			return true
+		}
+		i = intV
+	} else {
+		if !hiddenTag.HasExceptStrings() {
+			return true
+		}
+		s = TagValueToString(tagValue)
+	}
+
+	return hiddenTag.SearchExceptValue(i, s) == nil
 }
 
 func (m *MetricsRegistry) Reset() {
@@ -612,18 +635,10 @@ func Reset() {
 	metricsRegistry.Reset()
 }
 
-func IsHiddenTag(tagKey string) bool {
-	return metricsRegistry.IsHiddenTag(tagKey)
+func IsHiddenTag(tagKey string, tagValue interface{}) bool {
+	return metricsRegistry.IsHiddenTag(tagKey, tagValue)
 }
 
-func GetHiddenTags() []string {
-	return metricsRegistry.GetHiddenTags()
-}
-
-func SetHiddenTags(hiddenTags []string) {
-	if len(hiddenTags) == 0 {
-		hiddenTags = nil
-	}
-	sort.Strings(hiddenTags) // It's required to use binary search in IsHiddenTag()
-	metricsRegistry.SetHiddenTags(hiddenTags)
+func SetHiddenTags(newRawHiddenTags HiddenTags) {
+	metricsRegistry.SetHiddenTags(newRawHiddenTags)
 }

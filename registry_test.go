@@ -104,8 +104,31 @@ func BenchmarkAddToRegistryReal(b *testing.B) {
 	})
 }
 
-func BenchmarkRegistryReal_withHiddenTag(b *testing.B) {
-	SetHiddenTags([]string{`success`})
+func BenchmarkRegistryRealReal(b *testing.B) {
+	SetHiddenTags(HiddenTags{HiddenTag{`success`, nil}, HiddenTag{`campaign_id`, ExceptValues{1}}})
+	initDefaultTags()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			testTags := Tags{
+				`tag0`:           0,
+				`tag1`:           1,
+				`success`:        true,
+				`hello`:          `world`,
+				`service`:        `rotator`,
+				`server`:         `idk`,
+				`worker_id`:      -1,
+				`defaultTagBool`: true,
+			}
+			GaugeInt64(`test_key`, testTags)
+		}
+	})
+	SetHiddenTags(nil)
+}
+
+/*
+func BenchmarkRegistryReal_FastTags_withHiddenTag(b *testing.B) {
+	SetHiddenTags(HiddenTags{HiddenTag{`success`, nil}, HiddenTag{`campaign_id`, ExceptValues{1}}})
 	initDefaultTags()
 	testTagsFast := testTags.ToFastTags()
 	b.ResetTimer()
@@ -126,7 +149,7 @@ func BenchmarkRegistryReal_FastTags(b *testing.B) {
 			GaugeInt64(`test_key`, testTagsFast)
 		}
 	})
-}
+}*/
 
 func BenchmarkTagsString(b *testing.B) {
 	initDefaultTags()
@@ -203,13 +226,13 @@ func TestTagsString(t *testing.T) {
 	}
 
 	{
-		SetHiddenTags([]string{`app_id`, `spot`, `spot_id`, `app`})
-		assert.Equal(t, `app`, GetHiddenTags()[0])
+		SetHiddenTags(HiddenTags{HiddenTag{`app_id`, nil}, HiddenTag{`spot`, nil}, HiddenTag{`spot_id`, nil}, HiddenTag{`app`, nil}, HiddenTag{`campaign_id`, ExceptValues{123}}, HiddenTag{`user_id`, ExceptValues{12}}})
+		assert.Equal(t, `app`, metricsRegistry.getHiddenTags()[0].Key)
 
-		tags := Tags{`spot`: true}
+		tags := Tags{`spot`: true, `campaign_id`: 123, `user_id`: 55}
 		considerHiddenTags(tags)
 		buf := generateStorageKey(TypeGaugeInt64, `testKey`, tags)
-		assert.Equal(t, `testKey,defaultOneMoreTag=null,defaultTag0=0,defaultTagBool=false,defaultTagString=string,spot=hidden@gauge_int64`, buf.result.String())
+		assert.Equal(t, `testKey,defaultOneMoreTag=null,defaultTag0=0,defaultTagBool=false,defaultTagString=string,campaign_id=123,spot=hidden,user_id=hidden@gauge_int64`, buf.result.String())
 		buf.Release()
 	}
 }
