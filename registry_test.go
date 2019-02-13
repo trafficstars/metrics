@@ -172,15 +172,6 @@ func BenchmarkRegistryRealReal_FastTags_withHiddenTag(b *testing.B) {
 	SetHiddenTags(nil)
 }
 
-func BenchmarkFastTag_Set(b *testing.B) {
-	tag := newFastTag()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		tag.Set(`a`, -1)
-	}
-	tag.Release()
-}
-
 func BenchmarkRegistryRealReal_FastTags(b *testing.B) {
 	initDefaultTags()
 	b.ResetTimer()
@@ -200,6 +191,15 @@ func BenchmarkRegistryRealReal_FastTags(b *testing.B) {
 			testTags.Release()
 		}
 	})
+}
+
+func BenchmarkFastTag_Set(b *testing.B) {
+	tag := newFastTag()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		tag.Set(`a`, -1)
+	}
+	tag.Release()
 }
 
 func BenchmarkTagsString(b *testing.B) {
