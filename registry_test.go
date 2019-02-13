@@ -104,7 +104,7 @@ func BenchmarkAddToRegistryReal(b *testing.B) {
 	})
 }
 
-func BenchmarkRegistryRealReal(b *testing.B) {
+func BenchmarkRegistryRealReal_lazy(b *testing.B) {
 	SetHiddenTags(HiddenTags{HiddenTag{`success`, nil}, HiddenTag{`campaign_id`, ExceptValues{1}}})
 	initDefaultTags()
 	b.ResetTimer()
@@ -121,6 +121,29 @@ func BenchmarkRegistryRealReal(b *testing.B) {
 				`defaultTagBool`: true,
 			}
 			GaugeInt64(`test_key`, testTags)
+		}
+	})
+	SetHiddenTags(nil)
+}
+
+func BenchmarkRegistryRealReal_normal(b *testing.B) {
+	SetHiddenTags(HiddenTags{HiddenTag{`success`, nil}, HiddenTag{`campaign_id`, ExceptValues{1}}})
+	initDefaultTags()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			testTags := NewTags()
+			testTags[`tags0`] = 0
+			testTags[`tag0`] = 0
+			testTags[`tag1`] = 1
+			testTags[`success`] = true
+			testTags[`hello`] = `world`
+			testTags[`service`] = `rotator`
+			testTags[`server`] = `idk`
+			testTags[`worker_id`] = -1
+			testTags[`defaultTagBool`] = true
+			GaugeInt64(`test_key`, testTags)
+			testTags.Release()
 		}
 	})
 	SetHiddenTags(nil)

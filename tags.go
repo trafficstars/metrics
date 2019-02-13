@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 )
@@ -17,6 +18,25 @@ var hiddenTagValue = []byte("hidden")
 
 type Tag interface{}
 type Tags map[string]Tag
+
+var (
+	tagsPool = sync.Pool{
+		New: func() interface{} {
+			return Tags{}
+		},
+	}
+)
+
+func NewTags() Tags {
+	return tagsPool.Get().(Tags)
+}
+
+func (tags Tags) Release() {
+	for k, _ := range tags {
+		delete(tags, k)
+	}
+	tagsPool.Put(tags)
+}
 
 /*
 
