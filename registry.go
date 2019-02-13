@@ -400,7 +400,7 @@ func (metricsRegistry *MetricsRegistry) Register(metric Metric, key string, inTa
 		})
 	}
 	for _, tag := range defaultTags {
-		tags[tag.Key] = tag.Value
+		tags[tag.Key] = tag.StringValue
 	}
 
 	commons := metric.(interface{ GetCommons() *metricCommon }).GetCommons()
@@ -451,10 +451,11 @@ func considerHiddenTags(tags AnyTags) {
 			}
 		}
 	case *FastTags:
-		panic(`Fast tags are not supported together with hidden tags, yet`)
-		for _, tag := range *inTags {
-			if IsHiddenTag(tag.Key, tag.Value) {
-				tag.Value = hiddenTagValue
+		for idx, _ := range *inTags {
+			tag := &(*inTags)[idx]
+			if IsHiddenTag(tag.Key, tag.GetValue()) {
+				tag.intValue = 0
+				tag.StringValue = hiddenTagValue
 			}
 		}
 	default:
@@ -477,7 +478,7 @@ func generateStorageKey(metricType Type, key string, tags AnyTags) *preallocated
 		buf.result.WriteString(`,`)
 		buf.result.WriteString(tag.Key)
 		buf.result.WriteString(`=`)
-		buf.result.Write(tag.Value)
+		buf.result.Write(tag.StringValue)
 	}
 
 	switch inTags := tags.(type) {
@@ -505,6 +506,7 @@ func generateStorageKey(metricType Type, key string, tags AnyTags) *preallocated
 			buf.result.WriteString(TagValueToString(inTags[k]))
 		}
 	case *FastTags:
+		inTags.Sort()
 		for _, tag := range *inTags {
 			if defaultTags.IsSet(tag.Key) {
 				continue
@@ -512,7 +514,7 @@ func generateStorageKey(metricType Type, key string, tags AnyTags) *preallocated
 			buf.result.WriteString(`,`)
 			buf.result.WriteString(tag.Key)
 			buf.result.WriteString(`=`)
-			buf.result.Write(tag.Value)
+			buf.result.Write(tag.StringValue)
 		}
 	default:
 		buf.tagKeys = buf.tagKeys[:0]

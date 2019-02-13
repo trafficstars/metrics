@@ -2,11 +2,16 @@ package metrics
 
 import (
 	"sort"
+	"sync"
 )
 
 type FastTag struct {
 	Key   string
-	Value []byte
+	StringValue []byte
+
+	// The main value is the StringValue. "intValue" exists only for optimizations
+	intValue int64
+	intValueIsSet bool
 }
 
 func TagValueToBytes(value Tag) []byte {
@@ -18,11 +23,41 @@ func TagValueToBytes(value Tag) []byte {
 	}
 }
 
-func (tag *FastTag) Set(value interface{}) {
-	tag.Value = TagValueToBytes(value)
+func (tag *FastTag) GetValue() interface{} {
+	if tag.intValueIsSet {
+		return tag.intValue
+	}
+
+	return tag.StringValue
+}
+
+func (tag *FastTag) Set(key string, value interface{}) {
+	tag.Key = key
+	tag.StringValue = TagValueToBytes(value)
+	if intV, ok := toInt64(value); ok {
+		tag.intValue = intV
+		tag.intValueIsSet = true
+	}
 }
 
 type FastTags []FastTag
+
+var (
+	fastTagsPool = sync.Pool{
+		New: func() interface{} {
+			return &FastTags{}
+		},
+	}
+)
+
+func NewFastTags() *FastTags {
+	return fastTagsPool.Get().(*FastTags)
+}
+
+func (tags *FastTags) Release() {
+	tags = nil
+	tagsPool.Put(tags)
+}
 
 func (tags FastTags) Len() int {
 	return len(tags)
@@ -34,6 +69,10 @@ func (tags FastTags) Less(i, j int) bool {
 
 func (tags FastTags) Swap(i, j int) {
 	tags[i], tags[j] = tags[j], tags[i]
+}
+
+func (tags FastTags) Sort() {
+	sort.Sort(tags)
 }
 
 func (tags FastTags) findStupid(key string) int {
@@ -71,22 +110,25 @@ func (tags FastTags) Get(key string) interface{} {
 	if idx == -1 {
 		return nil
 	}
-	return tags[idx].Value
+
+	return tags[idx].GetValue()
 }
 
-func (tags FastTags) Set(key string, value interface{}) {
+func (tags *FastTags) Set(key string, value interface{}) AnyTags {
 	idx := tags.findFast(key)
 	if idx != -1 {
-		tags[idx].Set(value)
+		(*tags)[idx].Set(key, value)
+		return tags
 	}
 
-	tags = append(tags, FastTag{})
-	tags[len(tags)-1].Set(value)
+	(*tags) = append((*tags), FastTag{})
+	(*tags)[len(*tags)-1].Set(key, value)
+	return tags
 }
 
 func (tags FastTags) Each(fn func(k string, v interface{}) bool) {
 	for _, tag := range tags {
-		if !fn(tag.Key, tag.Value) {
+		if !fn(tag.Key, tag.GetValue()) {
 			break
 		}
 	}

@@ -160,8 +160,9 @@ func (tags Tags) Keys() (result []string) {
 func (tags Tags) Get(key string) interface{} {
 	return tags[key]
 }
-func (tags Tags) Set(key string, value interface{}) {
+func (tags Tags) Set(key string, value interface{}) AnyTags {
 	tags[key] = value
+	return tags
 }
 func (tags Tags) Each(fn func(k string, v interface{}) bool) {
 	for k, v := range tags {
@@ -177,9 +178,11 @@ func (tags Tags) ToFastTags() *FastTags {
 	r := make(FastTags, 0, len(keys))
 
 	for _, k := range keys {
+		intV, _ := toInt64(tags[k])
 		r = append(r, FastTag{
 			Key:   k,
-			Value: TagValueToBytes(tags[k]),
+			StringValue: TagValueToBytes(tags[k]),
+			intValue: intV,
 		})
 	}
 	return &r
