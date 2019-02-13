@@ -570,7 +570,7 @@ func GetDefaultSender() Sender {
 	return metricsRegistry.GetDefaultSender()
 }
 
-func SetIntervaler(newMetricsIterateIntervaler MetricsIterateIntervaler) {
+func SetMetricsIterateIntervaler(newMetricsIterateIntervaler MetricsIterateIntervaler) {
 	metricsRegistry.metricsIterateIntervaler = newMetricsIterateIntervaler
 }
 
