@@ -11,6 +11,8 @@ type Metric interface {
 	Stop()
 	Send(Sender)
 	GetType() Type
+	GetName() string
+	GetTags() Tags
 	GetFloat64() float64
 	IsRunning() bool
 	Release()

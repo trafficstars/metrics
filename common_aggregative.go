@@ -86,6 +86,10 @@ var (
 	}
 )
 
+func GetBaseAggregationPeriod() *AggregationPeriod {
+	return &AggregationPeriod{1}
+}
+
 func GetAggregationPeriods() (r []AggregationPeriod) {
 	aggregationPeriods.RLock()
 	r = make([]AggregationPeriod, len(aggregationPeriods.s))
@@ -121,6 +125,11 @@ func (aggrV *AggregativeValue) set(v float64) {
 	aggrV.Avg.Set(v)
 	aggrV.Max.Set(v)
 	aggrV.AggregativeStatistics.Set(v)
+}
+func (aggrV *AggregativeValue) LockDo(fn func(*AggregativeValue)) {
+	aggrV.Lock()
+	fn(aggrV)
+	aggrV.Unlock()
 }
 
 type AggregativeValues struct {
@@ -197,13 +206,20 @@ func (m *metricCommonAggregative) init(parent Metric, key string, tags AnyTags) 
 	m.metricCommon.init(parent, key, tags, func() bool { return atomic.LoadUint64(&m.data.ByPeriod[0].Count) == 0 })
 }
 
+func (m *metricCommonAggregative) GetAggregationPeriods() (r []AggregationPeriod) {
+	m.Lock()
+	r = make([]AggregationPeriod, len(m.aggregationPeriods))
+	copy(r, aggregationPeriods.s)
+	m.Unlock()
+	return
+}
+
 func (m *metricCommonAggregative) considerValue(v float64) {
 	if m == nil {
 		return
 	}
 
 	appendData := func(data *AggregativeValue) {
-		data.Lock()
 		count := data.Count
 		if count == 0 || v < data.Min.GetFast() {
 			data.Min.SetFast(v)
@@ -216,11 +232,10 @@ func (m *metricCommonAggregative) considerValue(v float64) {
 		data.Avg.SetFast((data.Avg.GetFast()*float64(count) + v) / (float64(count) + 1))
 		data.AggregativeStatistics.ConsiderValue(v)
 		data.Count++
-		data.Unlock()
 	}
 
-	appendData((*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Current)))))
-	appendData((*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Total)))))
+	(*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Current)))).LockDo(appendData)
+	(*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Total)))).LockDo(appendData)
 	(*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Last)))).set(v)
 
 }
