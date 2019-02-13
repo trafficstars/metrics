@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	// Buffer size. The more this buffer the more CPU is utilized and more precise values are.
+	// Buffer size. The more this buffer the more CPU is utilized (on metric `GetPercentiles` which is used by `List()`) and more precise values are.
 	bufferSize = 1000
 )
 
@@ -147,10 +147,12 @@ func (s *AggregativeStatisticsShortBuf) MergeStatistics(oldSI AggregativeStatist
 		oldS.filledSize -= delta
 	}
 
+	indexes := rand.Perm(int(origFilledSize))
+
 	ratio := float64(oldS.tickID) / float64(s.tickID+oldS.tickID)
-	for _, value := range oldS.data[:oldS.filledSize] {
+	for idx, value := range oldS.data[:oldS.filledSize] {
 		if ratio > rand.Float64() {
-			s.data[rand.Intn(int(origFilledSize))] = value
+			s.data[indexes[idx]] = value
 		}
 	}
 
