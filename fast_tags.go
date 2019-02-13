@@ -6,22 +6,38 @@ import (
 )
 
 type FastTag struct {
-	Key   string
-	StringValue []byte
+	Key         string
+	StringValue string
 
 	// The main value is the StringValue. "intValue" exists only for optimizations
-	intValue int64
+	intValue      int64
 	intValueIsSet bool
 }
 
-func TagValueToBytes(value Tag) []byte {
+var (
+	fastTagPool = sync.Pool{
+		New: func() interface{} {
+			return &FastTag{}
+		},
+	}
+)
+
+func newFastTag() *FastTag {
+	return fastTagPool.Get().(*FastTag)
+}
+
+func (tag *FastTag) Release() {
+	fastTagPool.Put(tag)
+}
+
+/*func TagValueToBytes(value Tag) []byte {
 	switch v := value.(type) {
 	case []byte:
 		return v
 	default:
 		return []byte(TagValueToString(value))
 	}
-}
+}*/
 
 func (tag *FastTag) GetValue() interface{} {
 	if tag.intValueIsSet {
@@ -33,14 +49,14 @@ func (tag *FastTag) GetValue() interface{} {
 
 func (tag *FastTag) Set(key string, value interface{}) {
 	tag.Key = key
-	tag.StringValue = TagValueToBytes(value)
+	tag.StringValue = TagValueToString(value)
 	if intV, ok := toInt64(value); ok {
 		tag.intValue = intV
 		tag.intValueIsSet = true
 	}
 }
 
-type FastTags []FastTag
+type FastTags []*FastTag
 
 var (
 	fastTagsPool = sync.Pool{
@@ -55,8 +71,11 @@ func NewFastTags() *FastTags {
 }
 
 func (tags *FastTags) Release() {
-	tags = nil
-	tagsPool.Put(tags)
+	for _, tag := range *tags {
+		tag.Release()
+	}
+	*tags = (*tags)[:0]
+	fastTagsPool.Put(tags)
 }
 
 func (tags FastTags) Len() int {
@@ -72,7 +91,11 @@ func (tags FastTags) Swap(i, j int) {
 }
 
 func (tags FastTags) Sort() {
-	sort.Sort(tags)
+	if len(tags) < 16 {
+		tags.sortBubble()
+	} else {
+		tags.sortQuick()
+	}
 }
 
 func (tags FastTags) findStupid(key string) int {
@@ -121,7 +144,7 @@ func (tags *FastTags) Set(key string, value interface{}) AnyTags {
 		return tags
 	}
 
-	(*tags) = append((*tags), FastTag{})
+	(*tags) = append((*tags), newFastTag())
 	(*tags)[len(*tags)-1].Set(key, value)
 	return tags
 }

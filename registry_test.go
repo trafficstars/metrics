@@ -152,14 +152,33 @@ func BenchmarkRegistryRealReal_normal(b *testing.B) {
 func BenchmarkRegistryReal_FastTags_withHiddenTag(b *testing.B) {
 	SetHiddenTags(HiddenTags{HiddenTag{`success`, nil}, HiddenTag{`campaign_id`, ExceptValues{1}}})
 	initDefaultTags()
-	testTagsFast := testTags.ToFastTags()
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			GaugeInt64(`test_key`, testTagsFast)
+			testTags := NewFastTags().
+				Set(`tags0`, 0).
+				Set(`tag0`, 0).
+				Set(`tag1`, 1).
+				Set(`success`, true).
+				Set(`hello`, `world`).
+				Set(`service`, `rotator`).
+				Set(`server`, `idk`).
+				Set(`worker_id`, -1).
+				Set(`defaultTagBool`, true)
+			GaugeInt64(`test_key`, testTags)
+			testTags.Release()
 		}
 	})
 	SetHiddenTags(nil)
+}
+
+func BenchmarkFastTag_Set(b *testing.B) {
+	tag := newFastTag()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		tag.Set(`a`, -1)
+	}
+	tag.Release()
 }
 
 func BenchmarkRegistryReal_FastTags(b *testing.B) {
@@ -168,7 +187,18 @@ func BenchmarkRegistryReal_FastTags(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
+			testTags := NewFastTags().
+				Set(`tags0`, 0).
+				Set(`tag0`, 0).
+				Set(`tag1`, 1).
+				Set(`success`, true).
+				Set(`hello`, `world`).
+				Set(`service`, `rotator`).
+				Set(`server`, `idk`).
+				Set(`worker_id`, -1).
+				Set(`defaultTagBool`, true)
 			GaugeInt64(`test_key`, testTagsFast)
+			testTags.Release()
 		}
 	})
 }

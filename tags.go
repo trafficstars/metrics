@@ -14,7 +14,7 @@ const (
 	prebakeMax     = 65536
 )
 
-var hiddenTagValue = []byte("hidden")
+var hiddenTagValue = "hidden"
 
 type Tag interface{}
 type Tags map[string]Tag
@@ -178,12 +178,11 @@ func (tags Tags) ToFastTags() *FastTags {
 	r := make(FastTags, 0, len(keys))
 
 	for _, k := range keys {
-		intV, _ := toInt64(tags[k])
-		r = append(r, FastTag{
-			Key:   k,
-			StringValue: TagValueToBytes(tags[k]),
-			intValue: intV,
-		})
+		tag := newFastTag()
+		tag.Key = k
+		tag.StringValue = TagValueToString(tags[k])
+		tag.intValue, _ = toInt64(tags[k])
+		r = append(r, tag)
 	}
 	return &r
 }

@@ -452,7 +452,7 @@ func considerHiddenTags(tags AnyTags) {
 		}
 	case *FastTags:
 		for idx, _ := range *inTags {
-			tag := &(*inTags)[idx]
+			tag := (*inTags)[idx]
 			if IsHiddenTag(tag.Key, tag.GetValue()) {
 				tag.intValue = 0
 				tag.StringValue = hiddenTagValue
@@ -478,7 +478,7 @@ func generateStorageKey(metricType Type, key string, tags AnyTags) *preallocated
 		buf.result.WriteString(`,`)
 		buf.result.WriteString(tag.Key)
 		buf.result.WriteString(`=`)
-		buf.result.Write(tag.StringValue)
+		buf.result.WriteString(tag.StringValue)
 	}
 
 	switch inTags := tags.(type) {
@@ -514,7 +514,7 @@ func generateStorageKey(metricType Type, key string, tags AnyTags) *preallocated
 			buf.result.WriteString(`,`)
 			buf.result.WriteString(tag.Key)
 			buf.result.WriteString(`=`)
-			buf.result.Write(tag.StringValue)
+			buf.result.WriteString(tag.StringValue)
 		}
 	default:
 		buf.tagKeys = buf.tagKeys[:0]
