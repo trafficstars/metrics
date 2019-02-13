@@ -174,3 +174,58 @@ func (s hiddenTagsInternal) Search(tagKey string) int {
 
 	return idx
 }
+
+func (hiddenTags hiddenTagsInternal) IsHiddenTag(tagKey string, tagValue interface{}) bool {
+	idx := hiddenTags.Search(tagKey)
+	if idx < 0 {
+		return false
+	}
+
+	hiddenTag := &hiddenTags[idx]
+
+	if !hiddenTag.HasExceptValues() {
+		return true
+	}
+
+	var i int64
+	var s string
+	if intV, ok := toInt64(tagValue); ok {
+		if !hiddenTag.HasExceptInts() {
+			return true
+		}
+		i = intV
+	} else {
+		if !hiddenTag.HasExceptStrings() {
+			return true
+		}
+		s = TagValueToString(tagValue)
+	}
+
+	return hiddenTag.SearchExceptValue(i, s) == nil
+}
+
+// TODO: deduplicate with (hiddenTagsInternal).IsHiddenTag()
+func (hiddenTags hiddenTagsInternal) isHiddenTagByIntAndString(tagKey string, intValue int64, stringValue string) bool {
+	idx := hiddenTags.Search(tagKey)
+	if idx < 0 {
+		return false
+	}
+
+	hiddenTag := &hiddenTags[idx]
+
+	if !hiddenTag.HasExceptValues() {
+		return true
+	}
+
+	if len(stringValue) == 0 {
+		if !hiddenTag.HasExceptInts() {
+			return true
+		}
+	} else {
+		if !hiddenTag.HasExceptStrings() {
+			return true
+		}
+	}
+
+	return hiddenTag.SearchExceptValue(intValue, stringValue) == nil
+}

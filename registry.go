@@ -442,25 +442,33 @@ func BubbleSort(data sort.StringSlice) {
 }
 
 func considerHiddenTags(tags AnyTags) {
+	hiddenTags := metricsRegistry.getHiddenTags()
+	if len(hiddenTags) == 0 {
+		return
+	}
 	switch inTags := tags.(type) {
 	case nil:
 	case Tags:
 		for k, v := range inTags {
-			if IsHiddenTag(k, v) {
+			if hiddenTags.IsHiddenTag(k, v) {
 				inTags.Set(k, hiddenTagValue)
 			}
 		}
 	case *FastTags:
 		for idx, _ := range *inTags {
 			tag := (*inTags)[idx]
-			if IsHiddenTag(tag.Key, tag.GetValue()) {
+			var s string
+			if !tag.intValueIsSet {
+				s = tag.StringValue
+			}
+			if hiddenTags.isHiddenTagByIntAndString(tag.Key, tag.intValue, s) {
 				tag.intValue = 0
 				tag.StringValue = hiddenTagValue
 			}
 		}
 	default:
 		inTags.Each(func(k string, v interface{}) bool {
-			if IsHiddenTag(k, v) {
+			if hiddenTags.IsHiddenTag(k, v) {
 				inTags.Set(k, hiddenTagValue)
 			}
 			return true
@@ -594,32 +602,7 @@ func (m *MetricsRegistry) SetHiddenTags(newRawHiddenTags HiddenTags) {
 
 func (m *MetricsRegistry) IsHiddenTag(tagKey string, tagValue interface{}) bool {
 	hiddenTags := m.getHiddenTags()
-	idx := hiddenTags.Search(tagKey)
-	if idx < 0 {
-		return false
-	}
-
-	hiddenTag := &hiddenTags[idx]
-
-	if !hiddenTag.HasExceptValues() {
-		return true
-	}
-
-	var i int64
-	var s string
-	if intV, ok := toInt64(tagValue); ok {
-		if !hiddenTag.HasExceptInts() {
-			return true
-		}
-		i = intV
-	} else {
-		if !hiddenTag.HasExceptStrings() {
-			return true
-		}
-		s = TagValueToString(tagValue)
-	}
-
-	return hiddenTag.SearchExceptValue(i, s) == nil
+	return hiddenTags.IsHiddenTag(tagKey, tagValue)
 }
 
 func (m *MetricsRegistry) Reset() {
