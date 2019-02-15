@@ -78,7 +78,6 @@ func GetDefaultIterateInterval() time.Duration {
 }
 
 type preallocatedStringerBuffer struct {
-	locker  int32
 	result  bytes.Buffer
 	tagKeys sort.StringSlice
 }
