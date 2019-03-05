@@ -9,8 +9,9 @@ type metricRegistryItem struct {
 	parent Metric
 }
 
-func (item *metricRegistryItem) init(parent Metric) {
+func (item *metricRegistryItem) init(parent Metric, name string) {
 	item.parent = parent
+	item.name = name
 }
 
 func (item *metricRegistryItem) considerHiddenTags() {

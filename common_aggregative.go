@@ -56,13 +56,13 @@ func (period *AggregationPeriod) String() string {
 		return strconv.FormatUint(period.Interval, 10) + `s`
 	}
 	if period.Interval%(3600*24) == 0 {
-		return strconv.FormatUint(period.Interval, 10) + `d`
+		return strconv.FormatUint(period.Interval/(3600*24), 10) + `d`
 	}
 	if period.Interval%3600 == 0 {
-		return strconv.FormatUint(period.Interval, 10) + `h`
+		return strconv.FormatUint(period.Interval/3600, 10) + `h`
 	}
 	if period.Interval%60 == 0 {
-		return strconv.FormatUint(period.Interval, 10) + `m`
+		return strconv.FormatUint(period.Interval/60, 10) + `m`
 	}
 	return (time.Duration(period.Interval) * slicerInterval).String()
 }

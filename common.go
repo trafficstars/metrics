@@ -43,7 +43,7 @@ func (metric *metricCommon) init(parent Metric, key string, tags AnyTags, getWas
 	metricsRegistry.Register(parent, key, tags)
 
 	metric.getWasUseless = getWasUseless
-	metric.metricRegistryItem.init(parent)
+	metric.metricRegistryItem.init(parent, key)
 
 	if GetDefaultIsRunned() {
 		parent.Run(GetDefaultIterateInterval())
