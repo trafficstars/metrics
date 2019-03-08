@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	// Buffer size. The more this buffer the more CPU is utilized (on metric `GetPercentiles` which is used by `List()`) and more precise values are.
+	// Buffer size. The more this buffer the more CPU is utilized (on metric `GetPercentiles` which is used by `List()`), the more RAM is utilized and more precise values are.
 	bufferSize = 1000
 )
 
