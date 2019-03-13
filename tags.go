@@ -5,8 +5,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -128,17 +126,6 @@ func TagValueToString(vI Tag) string {
 	}
 
 	return "<unknown_type>"
-}
-
-func (tags Tags) ForLogrus(merge logrus.Fields) logrus.Fields {
-	fields := logrus.Fields{}
-	for k, v := range tags {
-		fields[k] = v
-	}
-	for k, v := range merge {
-		fields[k] = v
-	}
-	return fields
 }
 
 func (tags Tags) Copy() Tags {
