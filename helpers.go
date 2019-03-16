@@ -7,9 +7,11 @@ func TagsToMap(tags AnyTags, fieldMaps... map[string]interface{}) map[string]int
 			fields[k] = v
 		}
 	}
-	tags.Each(func(k string, v interface{}) bool {
-		fields[k] = v
-		return true
-	})
+	if tags != nil {
+		tags.Each(func(k string, v interface{}) bool {
+			fields[k] = v
+			return true
+		})
+	}
 	return fields
 }
