@@ -176,16 +176,15 @@ func (tags Tags) ToFastTags() *FastTags {
 
 func (tags Tags) ToMap(fieldMaps... map[string]interface{}) map[string]interface{} {
 	fields := map[string]interface{}{}
+	if tags != nil {
+		for k, v := range tags {
+			fields[k] = v
+		}
+	}
 	for _, fieldMap := range fieldMaps {
 		for k, v := range fieldMap {
 			fields[k] = v
 		}
-	}
-	if tags != nil {
-		tags.Each(func(k string, v interface{}) bool {
-			fields[k] = v
-			return true
-		})
 	}
 	return fields
 }
