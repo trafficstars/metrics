@@ -160,3 +160,18 @@ func (tags FastTags) Each(fn func(k string, v interface{}) bool) {
 func (tags *FastTags) ToFastTags() *FastTags {
 	return tags
 }
+
+func (tags FastTags) ToMap(fieldMaps... map[string]interface{}) map[string]interface{} {
+	fields := map[string]interface{}{}
+	if tags != nil {
+		for _, tag := range tags {
+			fields[tag.Key] = tag.GetValue()
+		}
+	}
+	for _, fieldMap := range fieldMaps {
+		for k, v := range fieldMap {
+			fields[k] = v
+		}
+	}
+	return fields
+}
