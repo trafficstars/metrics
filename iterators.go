@@ -97,7 +97,7 @@ func (iterationHandler *iterationHandler) Remove(removeIterator iterator) (resul
 			iterationHandler.iterators = nil
 			//iterationHandler.stop()
 			//mapKey := uint64(iterationHandler.iterateInterval.Nanoseconds())
-			//iterationHandlers.m.(interface{ LockUnset(atomicmap.Key) error }).LockUnset(mapKey)
+			//iterationHandlers.m.(interface{ Unset(atomicmap.Key) error }).Unset(mapKey)
 			iterationHandler.Unlock()
 			//iterationHandler.Release()
 			return true
