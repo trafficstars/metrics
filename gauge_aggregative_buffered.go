@@ -1,9 +1,5 @@
 package metrics
 
-import (
-	"time"
-)
-
 type MetricGaugeAggregativeBuffered struct {
 	//metricCommonAggregativeFlow
 	metricCommonAggregativeShortBuf
@@ -33,8 +29,8 @@ func GaugeAggregativeBuffered(key string, tags AnyTags) *MetricGaugeAggregativeB
 	return newMetricGaugeAggregativeBuffered(key, tags)
 }
 
-func (m *MetricGaugeAggregativeBuffered) ConsiderValue(v time.Duration) {
-	m.considerValue(float64(v.Nanoseconds()))
+func (m *MetricGaugeAggregativeBuffered) ConsiderValue(v float64) {
+	m.considerValue(v)
 }
 
 func (m *MetricGaugeAggregativeBuffered) GetType() Type {

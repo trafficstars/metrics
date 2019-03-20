@@ -5,8 +5,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -130,17 +128,6 @@ func TagValueToString(vI Tag) string {
 	return "<unknown_type>"
 }
 
-func (tags Tags) ForLogrus(merge logrus.Fields) logrus.Fields {
-	fields := logrus.Fields{}
-	for k, v := range tags {
-		fields[k] = v
-	}
-	for k, v := range merge {
-		fields[k] = v
-	}
-	return fields
-}
-
 func (tags Tags) Copy() Tags {
 	cp := Tags{}
 	for k, v := range tags {
@@ -185,4 +172,19 @@ func (tags Tags) ToFastTags() *FastTags {
 		r = append(r, tag)
 	}
 	return &r
+}
+
+func (tags Tags) ToMap(fieldMaps... map[string]interface{}) map[string]interface{} {
+	fields := map[string]interface{}{}
+	if tags != nil {
+		for k, v := range tags {
+			fields[k] = v
+		}
+	}
+	for _, fieldMap := range fieldMaps {
+		for k, v := range fieldMap {
+			fields[k] = v
+		}
+	}
+	return fields
 }

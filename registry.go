@@ -210,7 +210,7 @@ func (m *MetricsRegistry) List() (result Metrics) {
 
 func (m *MetricsRegistry) remove(metric Metric) {
 	metric.Stop()
-	m.storage.LockUnset(metric.(interface{ GetKey() []byte }).GetKey())
+	m.storage.Unset(metric.(interface{ GetKey() []byte }).GetKey())
 }
 
 func (m *MetricsRegistry) GetSender() Sender {
@@ -611,7 +611,7 @@ func (m *MetricsRegistry) Reset() {
 			continue
 		}
 		metric.(Metric).Stop()
-		m.storage.LockUnset(metricKey)
+		m.storage.Unset(metricKey)
 	}
 }
 
