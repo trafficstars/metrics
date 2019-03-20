@@ -50,15 +50,15 @@ func (iterationHandler *iterationHandler) loop() {
 		case <-ticker.C:
 		}
 		iterationHandler.RLock()
+		iterators := iterationHandler.iterators
+		iterationHandler.RUnlock()
 
-		for _, iterator := range iterationHandler.iterators {
+		for _, iterator := range iterators {
 			if !iterator.IsRunning() {
 				continue
 			}
 			iterator.Iterate()
 		}
-
-		iterationHandler.RUnlock()
 	}
 }
 
