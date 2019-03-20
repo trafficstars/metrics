@@ -127,9 +127,19 @@ func (aggrV *AggregativeValue) set(v float64) {
 	aggrV.AggregativeStatistics.Set(v)
 }
 func (aggrV *AggregativeValue) LockDo(fn func(*AggregativeValue)) {
+	if aggrV == nil {
+		return
+	}
 	aggrV.Lock()
 	fn(aggrV)
 	aggrV.Unlock()
+}
+
+func (aggrV *AggregativeValue) GetAvg() float64 {
+	if aggrV == nil {
+		return 0
+	}
+	return aggrV.Avg.Get()
 }
 
 type AggregativeValues struct {
@@ -474,4 +484,8 @@ func (m *metricCommonAggregative) DoSlice() {
 	nextValue.AggregativeStatistics = m.newAggregativeStatistics()
 	filledValue := (*AggregativeValue)(atomic.SwapPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Current)), (unsafe.Pointer)(nextValue)))
 	m.considerFilledValue(filledValue)
+}
+
+func (m *metricCommonAggregative) GetFloat64() float64 {
+	return m.data.Last.GetAvg()
 }

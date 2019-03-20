@@ -23,3 +23,8 @@ func BenchmarkNewGaugeFloat64(b *testing.B) {
 		})
 	}
 }
+
+func TestMetricInterfaceOnGaugeFloat64(t *testing.T) {
+	m := newMetricGaugeFloat64(``, nil)
+	checkForInfiniteRecursion(m)
+}

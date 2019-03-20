@@ -63,6 +63,13 @@ func (w *metricCommonInt64) SetValuePointer(newValuePtr *int64) {
 	w.valuePtr = newValuePtr
 }
 
+func (m *metricCommonInt64) Send(sender Sender) {
+	if sender == nil {
+		return
+	}
+	sender.SendUint64(m.parent, string(m.storageKey), uint64(m.Get()))
+}
+
 func (w *metricCommonInt64) wasUseless() bool {
 	return w.getDifferenceFlush() == 0
 }

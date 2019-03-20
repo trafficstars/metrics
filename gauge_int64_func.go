@@ -34,7 +34,21 @@ func (m *MetricGaugeInt64Func) GetType() Type {
 }
 
 func (m *MetricGaugeInt64Func) Get() int64 {
+	if m == nil {
+		return 0
+	}
 	return m.fn()
+}
+
+func (m *MetricGaugeInt64Func) GetFloat64() float64 {
+	return float64(m.Get())
+}
+
+func (m *MetricGaugeInt64Func) Send(sender Sender) {
+	if sender == nil {
+		return
+	}
+	sender.SendUint64(m.parent, string(m.storageKey), uint64(m.Get()))
 }
 
 func (m *MetricGaugeInt64Func) wasUseless() bool {

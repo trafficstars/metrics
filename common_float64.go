@@ -37,6 +37,10 @@ func (m *metricCommonFloat64) Get() float64 {
 	return m.valuePtr.Get()
 }
 
+func (m *metricCommonFloat64) GetFloat64() float64 {
+	return m.Get()
+}
+
 func (m *metricCommonFloat64) getModifyCounterDiffFlush() uint64 {
 	if m == nil {
 		return 0
@@ -49,6 +53,13 @@ func (w *metricCommonFloat64) SetValuePointer(newValuePtr *float64) {
 		return
 	}
 	w.valuePtr = &AtomicFloat64Ptr{Pointer: newValuePtr}
+}
+
+func (m *metricCommonFloat64) Send(sender Sender) {
+	if sender == nil {
+		return
+	}
+	sender.SendFloat64(m.parent, string(m.storageKey), m.Get())
 }
 
 func (w *metricCommonFloat64) wasUseless() bool {
