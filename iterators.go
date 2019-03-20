@@ -40,7 +40,7 @@ var (
 )
 
 func (iterationHandler *iterationHandler) loop() {
-	ticker := time.NewTicker(iterationHandler.iterateInterval * time.Nanosecond)
+	ticker := time.NewTicker(iterationHandler.iterateInterval)
 	for {
 		select {
 		case <-iterationHandler.stopChan:
