@@ -11,6 +11,7 @@ import (
 )
 
 type iterator interface {
+	EqualsTo(iterator) bool
 	IsRunning() bool
 	Iterate()
 	GetInterval() time.Duration
@@ -78,7 +79,7 @@ func (iterationHandler *iterationHandler) stop() {
 func (iterationHandler *iterationHandler) Add(iterator iterator) {
 	iterationHandler.RLock()
 	for _, curIterator := range iterationHandler.iterators {
-		if iterator == curIterator {
+		if curIterator.EqualsTo(iterator) {
 			iterationHandler.RUnlock()
 			return
 		}
@@ -89,7 +90,7 @@ func (iterationHandler *iterationHandler) Add(iterator iterator) {
 
 	iterationHandler.Lock()
 	for _, curIterator := range iterationHandler.iterators {
-		if iterator == curIterator {
+		if curIterator.EqualsTo(iterator) {
 			iterationHandler.Unlock()
 			return
 		}

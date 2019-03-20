@@ -165,6 +165,14 @@ func (slicer *metricCommonAggregativeSlicer) IsRunning() bool {
 	return slicer.metric.IsRunning()
 }
 
+func (m *metricCommonAggregativeSlicer) EqualsTo(cmpI iterator) bool {
+	cmp, ok := cmpI.(*metricCommonAggregativeSlicer)
+	if !ok {
+		return false
+	}
+	return m == cmp
+}
+
 type metricCommonAggregative struct {
 	metricCommon
 

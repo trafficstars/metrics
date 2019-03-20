@@ -14,7 +14,7 @@ import (
 
 const (
 	defaultIterateInterval = 10 * time.Second
-	gcUselessLimit         = 60
+	gcUselessLimit         = 5
 )
 
 const (

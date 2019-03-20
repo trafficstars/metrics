@@ -240,3 +240,11 @@ func (m *metricCommon) GetType() Type {
 func (m *metricCommon) GetFloat64() float64 {
 	return m.parent.GetFloat64()
 }
+
+func (m *metricCommon) EqualsTo(cmpI iterator) bool {
+	cmp, ok := cmpI.(*metricCommon)
+	if !ok {
+		return false
+	}
+	return m == cmp
+}
