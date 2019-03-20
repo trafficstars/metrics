@@ -66,8 +66,12 @@ var (
 	}
 )
 
-func NewFastTags() *FastTags {
+/*func NewFastTags() *FastTags {
 	return fastTagsPool.Get().(*FastTags)
+}*/
+
+func NewFastTags() Tags {
+	return NewTags()
 }
 
 func (tags *FastTags) Release() {

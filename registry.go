@@ -45,6 +45,10 @@ type MetricsRegistry struct {
 	defaultIsRunned          uint32
 }
 
+func SeLlimit(newLimit uint) {
+	// for future compatibility
+}
+
 func (m *MetricsRegistry) SetDisabled(newIsDisabled bool) bool {
 	newValue := uint64(0)
 	if newIsDisabled {

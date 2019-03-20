@@ -89,20 +89,20 @@ func (iterationHandler *iterationHandler) Add(iterator iterator) {
 	// RLock is prefered over Lock and a real adding is a rare event, so…
 
 	iterationHandler.Lock()
+	defer iterationHandler.Unlock()
 	for _, curIterator := range iterationHandler.iterators {
 		if curIterator.EqualsTo(iterator) {
-			iterationHandler.Unlock()
 			return
 		}
 	}
 	iterationHandler.iterators = append(iterationHandler.iterators, iterator)
-	iterationHandler.Unlock()
 }
 
 // Remove removed a metric from the iterationHandler.
 // It it was the last metric it will stop the iterationHandler and remove it from the iterationHandlers registry
 func (iterationHandler *iterationHandler) Remove(removeIterator iterator) (result bool) {
 	iterationHandler.Lock()
+	defer iterationHandler.Unlock()
 
 	if len(iterationHandler.iterators) == 1 {
 		if iterationHandler.iterators[0] == removeIterator {
@@ -110,11 +110,9 @@ func (iterationHandler *iterationHandler) Remove(removeIterator iterator) (resul
 			//iterationHandler.stop()
 			//mapKey := uint64(iterationHandler.iterateInterval.Nanoseconds())
 			//iterationHandlers.m.(interface{ Unset(atomicmap.Key) error }).Unset(mapKey)
-			iterationHandler.Unlock()
 			//iterationHandler.Release()
 			return true
 		}
-		iterationHandler.Unlock()
 		return false
 	}
 
@@ -134,7 +132,6 @@ func (iterationHandler *iterationHandler) Remove(removeIterator iterator) (resul
 		iterationHandler.iterators = leftIterators
 	}
 
-	iterationHandler.Unlock()
 	return
 }
 

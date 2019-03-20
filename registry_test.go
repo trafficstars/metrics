@@ -227,13 +227,28 @@ func BenchmarkTagsFastString(b *testing.B) {
 }
 
 func TestGet(t *testing.T) {
-	tags := NewFastTags().Set(`func`, `TestGet`)
+	SetDefaultTags(Tags{
+		"service":    "pixel",
+		"datacenter": "DC_NAME",
+		"hostname":   "hostname",
+		"hostcode":   "hostcode",
+	})
+
+	tags := NewFastTags().Set("key", "TestTag").
+		Set("result", "unknown").
+		Set("format_id", "TestTag").
+		Set("is_priv", true)
+
 	Count(`TestGet`, tags)
 	tags.Release()
 
 	GC()
 
-	tags = NewFastTags().Set(`func`, `TestGet`)
+	tags = NewFastTags().Set("key", "TestTag").
+		Set("result", "unknown").
+		Set("format_id", "TestTag").
+		Set("is_priv", true)
+
 	m := metricsRegistry.Get(TypeCount, `TestGet`, tags)
 	if m == nil {
 		considerHiddenTags(tags)
@@ -248,8 +263,8 @@ func TestGet(t *testing.T) {
 			fmt.Println("The list:", string(key.([]byte)), metric)
 		}
 	}
-	assert.NotNil(t, m)
 	tags.Release()
+	assert.NotNil(t, m)
 }
 
 func TestGC(t *testing.T) {
