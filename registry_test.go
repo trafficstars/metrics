@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"fmt"
 	"runtime"
 	"sync/atomic"
 	"testing"
@@ -223,6 +224,32 @@ func BenchmarkTagsFastString(b *testing.B) {
 			buf.Release()
 		}
 	})
+}
+
+func TestGet(t *testing.T) {
+	tags := NewFastTags().Set(`func`, `TestGet`)
+	Count(`TestGet`, tags)
+	tags.Release()
+
+	GC()
+
+	tags = NewFastTags().Set(`func`, `TestGet`)
+	m := metricsRegistry.Get(TypeCount, `TestGet`, tags)
+	if m == nil {
+		considerHiddenTags(tags)
+		storageKeyBuf := generateStorageKey(TypeCount, `TestGet`, tags)
+		fmt.Println("Key:", storageKeyBuf.result.String())
+		storageKeyBuf.Release()
+		for _, key := range metricsRegistry.storage.Keys() {
+			metric, _ := metricsRegistry.storage.GetByBytes(key.([]byte))
+			if metric == nil {
+				continue
+			}
+			fmt.Println("The list:", string(key.([]byte)), metric)
+		}
+	}
+	assert.NotNil(t, m)
+	tags.Release()
 }
 
 func TestGC(t *testing.T) {
