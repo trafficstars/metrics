@@ -5,6 +5,6 @@ type AnyTags interface {
 	Set(key string, value interface{}) AnyTags
 	Each(func(k string, v interface{}) bool)
 	ToFastTags() *FastTags
-	ToMap(fieldMaps... map[string]interface{}) map[string]interface{}
+	ToMap(fieldMaps ...map[string]interface{}) map[string]interface{}
 	Release()
 }

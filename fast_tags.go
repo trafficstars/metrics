@@ -161,7 +161,7 @@ func (tags *FastTags) ToFastTags() *FastTags {
 	return tags
 }
 
-func (tags FastTags) ToMap(fieldMaps... map[string]interface{}) map[string]interface{} {
+func (tags FastTags) ToMap(fieldMaps ...map[string]interface{}) map[string]interface{} {
 	fields := map[string]interface{}{}
 	if tags != nil {
 		for _, tag := range tags {
