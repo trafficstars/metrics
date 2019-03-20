@@ -76,6 +76,17 @@ func (iterationHandler *iterationHandler) stop() {
 
 // Add add a metric to the iterationHandler. It will periodically call method Iterate() of the metric
 func (iterationHandler *iterationHandler) Add(iterator iterator) {
+	iterationHandler.RLock()
+	for _, curIterator := range iterationHandler.iterators {
+		if iterator == curIterator {
+			iterationHandler.RUnlock()
+			return
+		}
+	}
+	iterationHandler.RUnlock()
+
+	// RLock is prefered over Lock and a real adding is a rare event, so…
+
 	iterationHandler.Lock()
 	for _, curIterator := range iterationHandler.iterators {
 		if iterator == curIterator {
