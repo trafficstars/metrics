@@ -248,7 +248,9 @@ func (m *metricCommonAggregative) considerValue(v float64) {
 		}
 
 		data.Avg.SetFast((data.Avg.GetFast()*float64(count) + v) / (float64(count) + 1))
-		data.AggregativeStatistics.ConsiderValue(v)
+		if data.AggregativeStatistics != nil {
+			data.AggregativeStatistics.ConsiderValue(v)
+		}
 		data.Count++
 	}
 
