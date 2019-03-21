@@ -136,8 +136,11 @@ func (iterationHandler *iterationHandler) Remove(removeIterator iterator) (resul
 }
 
 func (iterationHandlers *iterationHandlersT) getIterationHandler(iterator iterator) *iterationHandler {
-	// Lock() requires ~50ns of time out my CPU, while atomicmap.Map.GetByUint64() requires only ~30ns
+	if iterator == nil {
+		return nil
+	}
 
+	// Lock() requires ~50ns of time out my CPU, while atomicmap.Map.GetByUint64() requires only ~30ns
 	iterationHandlerKey := iterator.GetInterval().Nanoseconds()
 	iterationHandlerI, _ := iterationHandlers.m.GetByUint64(uint64(iterationHandlerKey))
 	if iterationHandlerI == nil {

@@ -146,10 +146,12 @@ func (m *MetricsRegistry) get(metricType Type, key string, tags AnyTags) Metric 
 	}
 	r := rI.(Metric)
 	if !r.IsRunning() {
+		/* Works unstable, commented for a while:
 		if !r.IsRunning() {
 			r.Run(metricsRegistry.GetDefaultIterateInterval())
 		}
 		m.set(r) // may be GC already cleanup this metric, so re-set it
+		*/
 	}
 	return r
 }

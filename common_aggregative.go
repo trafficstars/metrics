@@ -120,6 +120,9 @@ func NewAggregativeValue() *AggregativeValue {
 }
 
 func (aggrV *AggregativeValue) set(v float64) {
+	if aggrV == nil {
+		return
+	}
 	atomic.StoreUint64(&aggrV.Count, 1)
 	aggrV.Min.Set(v)
 	aggrV.Avg.Set(v)
