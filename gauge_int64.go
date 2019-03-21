@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"sync/atomic"
+	"unsafe"
 )
 
 type MetricGaugeInt64 struct {
@@ -38,6 +39,9 @@ func (m *MetricGaugeInt64) GetType() Type {
 func (m *MetricGaugeInt64) Decrement() int64 {
 	if m == nil {
 		return 0
+	}
+	if m.valuePtr == nil {
+		atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&m.valuePtr)), (unsafe.Pointer)(&[]int64{0}[0]))
 	}
 	return atomic.AddInt64(m.valuePtr, -1)
 }

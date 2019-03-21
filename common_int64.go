@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"sync/atomic"
+	"unsafe"
 )
 
 type metricCommonInt64 struct {
@@ -15,29 +16,38 @@ func (m *metricCommonInt64) init(parent Metric, key string, tags AnyTags) {
 	m.metricCommon.init(parent, key, tags, func() bool { return m.wasUseless() })
 }
 
-func (w *metricCommonInt64) Increment() int64 {
-	if w == nil {
+func (m *metricCommonInt64) Increment() int64 {
+	if m == nil {
 		return 0
 	}
-	return atomic.AddInt64(w.valuePtr, 1)
+	if m.valuePtr == nil {
+		atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&m.valuePtr)), (unsafe.Pointer)(&[]int64{0}[0]))
+	}
+	return atomic.AddInt64(m.valuePtr, 1)
 }
 
-func (w *metricCommonInt64) Add(delta int64) int64 {
-	return atomic.AddInt64(w.valuePtr, delta)
+func (m *metricCommonInt64) Add(delta int64) int64 {
+	return atomic.AddInt64(m.valuePtr, delta)
 }
 
-func (w *metricCommonInt64) Set(newValue int64) {
-	if w == nil {
+func (m *metricCommonInt64) Set(newValue int64) {
+	if m == nil {
 		return
 	}
-	atomic.StoreInt64(w.valuePtr, newValue)
+	if m.valuePtr == nil {
+		atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&m.valuePtr)), (unsafe.Pointer)(&[]int64{0}[0]))
+	}
+	atomic.StoreInt64(m.valuePtr, newValue)
 }
 
-func (w *metricCommonInt64) Get() int64 {
-	if w == nil {
+func (m *metricCommonInt64) Get() int64 {
+	if m == nil {
 		return 0
 	}
-	return atomic.LoadInt64(w.valuePtr)
+	if m.valuePtr == nil {
+		atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&m.valuePtr)), (unsafe.Pointer)(&[]int64{0}[0]))
+	}
+	return atomic.LoadInt64(m.valuePtr)
 }
 
 func (w *metricCommonInt64) GetFloat64() float64 {
