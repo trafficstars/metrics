@@ -17,6 +17,12 @@ func (m *metricCommonFloat64) init(parent Metric, key string, tags AnyTags) {
 }
 
 func (m *metricCommonFloat64) Add(delta float64) float64 {
+	if m == nil {
+		return 0
+	}
+	if m.valuePtr == nil {
+		return 0
+	}
 	r := m.valuePtr.Add(delta)
 	atomic.AddUint64(&m.modifyCounter, 1)
 	return r
@@ -26,12 +32,18 @@ func (m *metricCommonFloat64) Set(newValue float64) {
 	if m == nil {
 		return
 	}
+	if m.valuePtr == nil {
+		return
+	}
 	m.valuePtr.Set(newValue)
 	atomic.AddUint64(&m.modifyCounter, 1)
 }
 
 func (m *metricCommonFloat64) Get() float64 {
 	if m == nil {
+		return 0
+	}
+	if m.valuePtr == nil {
 		return 0
 	}
 	return m.valuePtr.Get()
