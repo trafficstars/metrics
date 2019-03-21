@@ -127,7 +127,9 @@ func (aggrV *AggregativeValue) set(v float64) {
 	aggrV.Min.Set(v)
 	aggrV.Avg.Set(v)
 	aggrV.Max.Set(v)
-	aggrV.AggregativeStatistics.Set(v)
+	if aggrV.AggregativeStatistics != nil {
+		aggrV.AggregativeStatistics.Set(v)
+	}
 }
 func (aggrV *AggregativeValue) LockDo(fn func(*AggregativeValue)) {
 	if aggrV == nil {
