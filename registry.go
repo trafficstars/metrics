@@ -45,7 +45,7 @@ type MetricsRegistry struct {
 	defaultIsRunned          uint32
 }
 
-func SeLlimit(newLimit uint) {
+func SetLimit(newLimit uint) {
 	// for future compatibility
 }
 
