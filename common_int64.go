@@ -27,6 +27,12 @@ func (m *metricCommonInt64) Increment() int64 {
 }
 
 func (m *metricCommonInt64) Add(delta int64) int64 {
+	if m == nil {
+		return 0
+	}
+	if m.valuePtr == nil {
+		atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&m.valuePtr)), (unsafe.Pointer)(&[]int64{0}[0]))
+	}
 	return atomic.AddInt64(m.valuePtr, delta)
 }
 
