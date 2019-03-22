@@ -387,8 +387,8 @@ func (m *MetricsRegistry) GC() {
 		metric := metricI.(Metric)
 		if !metric.IsRunning() {
 			m.remove(metric)
+			metric.Release()
 		}
-		metric.Release()
 	}
 }
 
