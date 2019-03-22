@@ -14,8 +14,7 @@ const (
 
 var hiddenTagValue = "hidden"
 
-type Tag interface{}
-type Tags map[string]Tag
+type Tags map[string]interface{}
 
 var (
 	tagsPool = sync.Pool{
@@ -88,7 +87,7 @@ func getPrebakedString(v int32) string {
 	return prebackedString[v+prebakeMax]
 }
 
-func TagValueToString(vI Tag) string {
+func TagValueToString(vI interface{}) string {
 	switch v := vI.(type) {
 	case int:
 		r := getPrebakedString(int32(v))
