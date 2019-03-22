@@ -125,6 +125,7 @@ func (m *metricCommon) uselessCounterIncrement() {
 	if !m.IsRunning() {
 		return
 	}
+	return
 	go m.parent.Stop()
 }
 
