@@ -380,7 +380,6 @@ func (m *metricCommonAggregative) Stop() {
 	if !m.IsRunning() {
 		return
 	}
-	return
 	m.Lock()
 	m.stop()
 
