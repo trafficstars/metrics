@@ -460,7 +460,7 @@ func considerHiddenTags(tags AnyTags) {
 			}
 		}
 	case *FastTags:
-		for idx, _ := range *inTags {
+		for idx := range *inTags {
 			tag := (*inTags)[idx]
 			var s string
 			if !tag.intValueIsSet {
@@ -498,7 +498,7 @@ func generateStorageKey(metricType Type, key string, tags AnyTags) *preallocated
 	case nil:
 	case Tags:
 		buf.tagKeys = buf.tagKeys[:0]
-		for k, _ := range inTags {
+		for k := range inTags {
 			if defaultTags.IsSet(k) {
 				continue
 			}

@@ -62,6 +62,9 @@ type AggregativeStatisticsFlow struct {
 }
 
 func (s *AggregativeStatisticsFlow) GetPercentile(percentile float64) *float64 {
+	if s == nil {
+		return nil
+	}
 	switch percentile {
 	case 0.01:
 		return s.Per1.Pointer

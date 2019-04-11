@@ -7,7 +7,7 @@ import (
 func BenchmarkSortBuiltin(b *testing.B) {
 	initial := newAggregativeBuffer()
 	initial.filledSize = 1000
-	for idx, _ := range initial.data {
+	for idx := range initial.data {
 		initial.data[idx] = float64((282589933 % (idx + 1000)) * 1000 / (idx + 1000))
 	}
 	b.ResetTimer()

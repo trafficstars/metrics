@@ -29,7 +29,7 @@ func NewTags() Tags {
 }
 
 func (tags Tags) Release() {
-	for k, _ := range tags {
+	for k := range tags {
 		delete(tags, k)
 	}
 	tagsPool.Put(tags)
@@ -137,7 +137,7 @@ func (tags Tags) Copy() Tags {
 
 func (tags Tags) Keys() (result []string) {
 	result = make([]string, 0, len(tags))
-	for k, _ := range tags {
+	for k := range tags {
 		result = append(result, k)
 	}
 	return
