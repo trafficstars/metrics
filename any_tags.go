@@ -7,4 +7,6 @@ type AnyTags interface {
 	ToFastTags() *FastTags
 	ToMap(fieldMaps ...map[string]interface{}) map[string]interface{}
 	Release()
+	WriteAsString(interface{ WriteString(string) (int, error) })
+	String() string
 }

@@ -66,13 +66,13 @@ var (
 	}
 )
 
-/*func NewFastTags() *FastTags {
+func NewFastTags() *FastTags {
 	return fastTagsPool.Get().(*FastTags)
-}*/
-
-func NewFastTags() Tags {
-	return NewTags()
 }
+
+/*func NewFastTags() Tags {
+	return NewTags()
+}*/
 
 func (tags *FastTags) Release() {
 	for _, tag := range *tags {
@@ -178,4 +178,40 @@ func (tags FastTags) ToMap(fieldMaps ...map[string]interface{}) map[string]inter
 		}
 	}
 	return fields
+}
+
+func (tags *FastTags) String() string {
+	buf := newBytesBuffer()
+	tags.WriteAsString(buf)
+	result := buf.String()
+	buf.Release()
+	return result
+}
+
+func (tags *FastTags) WriteAsString(writeStringer interface{ WriteString(string) (int, error) }) {
+	tagsCount := 0
+
+	for _, tag := range defaultTags {
+		if tagsCount != 0 {
+			writeStringer.WriteString(`,`)
+		}
+		writeStringer.WriteString(tag.Key)
+		writeStringer.WriteString(`=`)
+		writeStringer.WriteString(tag.StringValue)
+		tagsCount++
+	}
+
+	tags.Sort()
+	for _, tag := range *tags {
+		if defaultTags.IsSet(tag.Key) {
+			continue
+		}
+		if tagsCount != 0 {
+			writeStringer.WriteString(`,`)
+		}
+		writeStringer.WriteString(tag.Key)
+		writeStringer.WriteString(`=`)
+		writeStringer.WriteString(tag.StringValue)
+		tagsCount++
+	}
 }

@@ -21,7 +21,7 @@ func GaugeAggregativeBuffered(key string, tags AnyTags) *MetricGaugeAggregativeB
 		return (*MetricGaugeAggregativeBuffered)(nil)
 	}
 
-	m := metricsRegistry.Get(TypeGaugeAggregativeBuffered, key, tags)
+	m := registry.Get(TypeGaugeAggregativeBuffered, key, tags)
 	if m != nil {
 		return m.(*MetricGaugeAggregativeBuffered)
 	}

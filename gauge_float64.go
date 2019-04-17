@@ -19,7 +19,7 @@ func GaugeFloat64(key string, tags AnyTags) *MetricGaugeFloat64 {
 		return (*MetricGaugeFloat64)(nil)
 	}
 
-	m := metricsRegistry.Get(TypeGaugeFloat64, key, tags)
+	m := registry.Get(TypeGaugeFloat64, key, tags)
 	if m != nil {
 		return m.(*MetricGaugeFloat64)
 	}

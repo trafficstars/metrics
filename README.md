@@ -1,3 +1,7 @@
+[![Build Status](https://travis-ci.org/trafficstars/metrics.svg?branch=master)](https://travis-ci.org/trafficstars/metrics)
+[![go report](https://goreportcard.com/badge/github.com/trafficstars/metrics)](https://goreportcard.com/report/github.com/trafficstars/metrics)
+[![GoDoc](https://godoc.org/github.com/trafficstars/metrics?status.svg)](https://godoc.org/github.com/trafficstars/metrics)
+
 ```
 BenchmarkSortBuiltin-3                               	 5000000	       109 ns/op	      32 B/op	       1 allocs/op
 BenchmarkConsiderValueFlow-3                         	 1000000	       520 ns/op	       0 B/op	       0 allocs/op

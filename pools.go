@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"bytes"
 	"sync"
 )
 
@@ -8,7 +9,32 @@ var (
 	memoryReuse = true
 )
 
+// SetMemoryReuseEnabled defines if memory reuse will be enabled (default -- enabled).
+func SetMemoryReuseEnabled(isEnabled bool) {
+	memoryReuse = isEnabled
+}
+
+type bytesBuffer struct {
+	bytes.Buffer
+}
+
+type stringSlice []string
+
+func (p stringSlice) Len() int           { return len(p) }
+func (p stringSlice) Less(i, j int) bool { return p[i] < p[j] }
+func (p stringSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+
 var (
+	bytesBufferPool = &sync.Pool{
+		New: func() interface{} {
+			return &bytesBuffer{}
+		},
+	}
+	stringSlicePool = &sync.Pool{
+		New: func() interface{} {
+			return &stringSlice{}
+		},
+	}
 	metricCountPool = &sync.Pool{
 		New: func() interface{} {
 			return &MetricCount{}
@@ -22,6 +48,11 @@ var (
 	metricGaugeAggregativeFlowPool = &sync.Pool{
 		New: func() interface{} {
 			return &MetricGaugeAggregativeFlow{}
+		},
+	}
+	metricGaugeAggregativeSimplePool = &sync.Pool{
+		New: func() interface{} {
+			return &MetricGaugeAggregativeSimple{}
 		},
 	}
 	metricGaugeFloat64Pool = &sync.Pool{
@@ -54,6 +85,11 @@ var (
 			return &MetricTimingFlow{}
 		},
 	}
+	metricTimingSimplePool = &sync.Pool{
+		New: func() interface{} {
+			return &MetricTimingSimple{}
+		},
+	}
 	aggregativeValuePool = &sync.Pool{
 		New: func() interface{} {
 			return &AggregativeValue{}
@@ -61,7 +97,7 @@ var (
 	}
 	aggregativeStatisticsFlowPool = &sync.Pool{
 		New: func() interface{} {
-			s := &AggregativeStatisticsFlow{}
+			s := &aggregativeStatisticsFlow{}
 			s.Per1.Pointer = &[]float64{0}[0]
 			s.Per10.Pointer = &[]float64{0}[0]
 			s.Per50.Pointer = &[]float64{0}[0]
@@ -72,12 +108,24 @@ var (
 	}
 	aggregativeBufferPool = &sync.Pool{
 		New: func() interface{} {
-			return &aggregativeBuffer{}
+			buf := &aggregativeBuffer{}
+			if uint(cap(buf.data)) < bufferSize {
+				buf.data = make(aggregativeBufferItems, bufferSize)
+			} else if uint(len(buf.data)) != bufferSize {
+				buf.data = buf.data[:bufferSize]
+			}
+			return buf
 		},
 	}
 	aggregativeStatisticsShortBufPool = &sync.Pool{
 		New: func() interface{} {
-			return &AggregativeStatisticsShortBuf{}
+			buf := &aggregativeStatisticsShortBuf{}
+			if uint(cap(buf.data)) < bufferSize {
+				buf.data = make(aggregativeBufferItems, bufferSize)
+			} else if uint(len(buf.data)) != bufferSize {
+				buf.data = buf.data[:bufferSize]
+			}
+			return buf
 		},
 	}
 	iterationHandlerPool = &sync.Pool{
@@ -90,7 +138,27 @@ var (
 	}
 )
 
-func (s *AggregativeStatisticsShortBuf) Release() {
+func newBytesBuffer() *bytesBuffer {
+	return bytesBufferPool.Get().(*bytesBuffer)
+}
+
+func (buf *bytesBuffer) Release() {
+	buf.Reset()
+	bytesBufferPool.Put(buf)
+}
+
+func newStringSlice() *stringSlice {
+	return stringSlicePool.Get().(*stringSlice)
+}
+
+func (s *stringSlice) Release() {
+	*s = (*s)[:0]
+	stringSlicePool.Put(s)
+}
+
+// Release should be called when the buffer won't be used anymore (to put into into the pool of free buffers) to
+// reduce pressure on GC.
+func (s *aggregativeStatisticsShortBuf) Release() {
 	if !memoryReuse {
 		return
 	}
@@ -99,10 +167,12 @@ func (s *AggregativeStatisticsShortBuf) Release() {
 	aggregativeStatisticsShortBufPool.Put(s)
 }
 
-func newAggregativeStatisticsShortBuf() *AggregativeStatisticsShortBuf {
-	return aggregativeStatisticsShortBufPool.Get().(*AggregativeStatisticsShortBuf)
+func newAggregativeStatisticsShortBuf() *aggregativeStatisticsShortBuf {
+	return aggregativeStatisticsShortBufPool.Get().(*aggregativeStatisticsShortBuf)
 }
 
+// Release should be called when the buffer won't be used anymore (to put into into the pool of free buffers) to
+// reduce pressure on GC.
 func (b *aggregativeBuffer) Release() {
 	if !memoryReuse {
 		return
@@ -115,7 +185,7 @@ func newAggregativeBuffer() *aggregativeBuffer {
 	return aggregativeBufferPool.Get().(*aggregativeBuffer)
 }
 
-func (s *AggregativeStatisticsFlow) Release() {
+func (s *aggregativeStatisticsFlow) Release() {
 	if !memoryReuse {
 		return
 	}
@@ -124,8 +194,8 @@ func (s *AggregativeStatisticsFlow) Release() {
 	aggregativeStatisticsFlowPool.Put(s)
 }
 
-func newAggregativeStatisticsFlow() *AggregativeStatisticsFlow {
-	return aggregativeStatisticsFlowPool.Get().(*AggregativeStatisticsFlow)
+func newAggregativeStatisticsFlow() *aggregativeStatisticsFlow {
+	return aggregativeStatisticsFlowPool.Get().(*aggregativeStatisticsFlow)
 }
 
 // Release is an opposite to NewAggregativeValue and it saves the variable to a pool to a prevent memory allocation in future.
@@ -176,6 +246,14 @@ func (m *MetricGaugeAggregativeBuffered) Release() {
 	metricGaugeAggregativeBufferedPool.Put(m)
 }
 
+func (m *MetricGaugeAggregativeSimple) Release() {
+	if !memoryReuse {
+		return
+	}
+	*m = MetricGaugeAggregativeSimple{}
+	metricGaugeAggregativeSimplePool.Put(m)
+}
+
 func (m *MetricGaugeInt64) Release() {
 	if !memoryReuse {
 		return
@@ -206,6 +284,14 @@ func (m *MetricTimingBuffered) Release() {
 	}
 	*m = MetricTimingBuffered{}
 	metricTimingBufferedPool.Put(m)
+}
+
+func (m *MetricTimingSimple) Release() {
+	if !memoryReuse {
+		return
+	}
+	*m = MetricTimingSimple{}
+	metricTimingSimplePool.Put(m)
 }
 
 func (m *MetricGaugeFloat64) Release() {

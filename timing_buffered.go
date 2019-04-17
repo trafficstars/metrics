@@ -23,7 +23,7 @@ func TimingBuffered(key string, tags AnyTags) *MetricTimingBuffered {
 		return (*MetricTimingBuffered)(nil)
 	}
 
-	m := metricsRegistry.Get(TypeTimingBuffered, key, tags)
+	m := registry.Get(TypeTimingBuffered, key, tags)
 	if m != nil {
 		return m.(*MetricTimingBuffered)
 	}

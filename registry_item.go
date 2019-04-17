@@ -2,9 +2,9 @@ package metrics
 
 type metricRegistryItem struct {
 	name        string
-	tags        Tags
+	tags        *FastTags
 	description string
-	storageKey  []byte
+	storageKey  uint64
 
 	parent Metric
 }
@@ -17,7 +17,7 @@ func (item *metricRegistryItem) init(parent Metric, name string) {
 func (item *metricRegistryItem) considerHiddenTags() {
 	considerHiddenTags(item.tags)
 }
-func (item *metricRegistryItem) generateStorageKey() *preallocatedStringerBuffer {
+func (item *metricRegistryItem) generateStorageKey() uint64 {
 	return generateStorageKey(item.parent.GetType(), item.name, item.tags)
 }
 
@@ -31,14 +31,17 @@ func (item *metricRegistryItem) GetName() string {
 	return item.name
 }
 func (item *metricRegistryItem) GetTags() Tags {
-	return item.tags.Copy()
+	return item.tags.ToMap()
 }
-func (item *metricRegistryItem) GetKey() []byte {
+func (item *metricRegistryItem) GetKey() uint64 {
 	if item == nil {
-		return []byte{}
+		return 0
 	}
 	return item.storageKey
 }
 func (item *metricRegistryItem) GetTag(key string) interface{} {
-	return item.tags[key]
+	if item.tags == nil {
+		return nil
+	}
+	return item.tags.Get(key)
 }

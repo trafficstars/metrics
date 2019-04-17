@@ -1,9 +1,7 @@
 package metrics
 
 import (
-	"bytes"
-	"runtime"
-	"sort"
+	"github.com/cespare/xxhash"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -25,20 +23,19 @@ const (
 )
 
 var (
-	metricsRegistry MetricsRegistry
-	defaultTags     FastTags
+	registry    Registry
+	defaultTags FastTags
 )
 
-type MetricsIterateIntervaler interface {
+type IterateIntervaler interface {
 	MetricsIterateInterval() time.Duration
 }
 
-type MetricsRegistry struct {
-	storage    atomicmap.Map
-	isDisabled uint64
-	//getterCache           atomicmap.Map
+type Registry struct {
+	storage                  atomicmap.Map
+	isDisabled               uint64
 	metricSender             Sender
-	metricsIterateIntervaler MetricsIterateIntervaler
+	metricsIterateIntervaler IterateIntervaler
 	monitorState             uint64
 	hiddenTags               *hiddenTagInternal
 	defaultGCEnabled         uint32
@@ -49,7 +46,7 @@ func SetLimit(newLimit uint) {
 	// for future compatibility
 }
 
-func (m *MetricsRegistry) SetDisabled(newIsDisabled bool) bool {
+func (m *Registry) SetDisabled(newIsDisabled bool) bool {
 	newValue := uint64(0)
 	if newIsDisabled {
 		newValue = 1
@@ -59,18 +56,18 @@ func (m *MetricsRegistry) SetDisabled(newIsDisabled bool) bool {
 }
 
 func SetDisabled(newIsDisabled bool) bool {
-	return metricsRegistry.SetDisabled(newIsDisabled)
+	return registry.SetDisabled(newIsDisabled)
 }
 
-func (m *MetricsRegistry) IsDisabled() bool {
+func (m *Registry) IsDisabled() bool {
 	return atomic.LoadUint64(&m.isDisabled) != 0
 }
 
 func IsDisabled() bool {
-	return metricsRegistry.IsDisabled()
+	return registry.IsDisabled()
 }
 
-func (m *MetricsRegistry) GetDefaultIterateInterval() time.Duration {
+func (m *Registry) GetDefaultIterateInterval() time.Duration {
 	if m.metricsIterateIntervaler == nil {
 		return defaultIterateInterval
 	}
@@ -78,69 +75,40 @@ func (m *MetricsRegistry) GetDefaultIterateInterval() time.Duration {
 }
 
 func GetDefaultIterateInterval() time.Duration {
-	return metricsRegistry.GetDefaultIterateInterval()
+	return registry.GetDefaultIterateInterval()
 }
 
-type preallocatedStringerBuffer struct {
-	result  bytes.Buffer
-	tagKeys sort.StringSlice
+type keyGeneratorReusables struct {
+	hasher  *xxhash.Digest
 }
 
 var (
-	stringBufferPool = sync.Pool{
+	keyGeneratorReusablesPool = sync.Pool{
 		New: func() interface{} {
-			return &preallocatedStringerBuffer{}
+			return &keyGeneratorReusables{
+				hasher: xxhash.New(),
+			}
 		},
 	}
 )
 
-func newStringBuffer() *preallocatedStringerBuffer {
-	return stringBufferPool.Get().(*preallocatedStringerBuffer)
+func newKeyGeneratorReusables() *keyGeneratorReusables {
+	return keyGeneratorReusablesPool.Get().(*keyGeneratorReusables)
 }
 
-func (b *preallocatedStringerBuffer) Release() {
-	b.result.Reset()
-	stringBufferPool.Put(b)
+func (b *keyGeneratorReusables) Release() {
+	b.hasher.Reset()
+	keyGeneratorReusablesPool.Put(b)
 }
-
-/*type preallocatedGetterBuffer struct {
-	sync.Mutex
-	pc     []uintptr
-	result bytes.Buffer
-}*/
 
 func init() {
 	SetDefaultGCEnabled(true)
 	SetDefaultIsRunned(true)
 }
 
-/*func (m *MetricsRegistry) getCallerCacheKey() *preallocatedGetterBuffer {
-	curBufPointer := atomic.AddUint64(&getterBufPointer, 1)
-	curBufPointer %= maxConcurrency
-	buf := getterBufs[curBufPointer]
-	buf.Lock()
-
-	buf.result.Reset()
-	runtime.Callers(0, buf.pc)
-	for _, c := range buf.pc {
-		i := uint64(c)
-		buf.result.WriteByte(byte(i << 56))
-		buf.result.WriteByte(byte(i << 48))
-		buf.result.WriteByte(byte(i << 40))
-		buf.result.WriteByte(byte(i << 32))
-		buf.result.WriteByte(byte(i << 24))
-		buf.result.WriteByte(byte(i << 16))
-		buf.result.WriteByte(byte(i << 8))
-		buf.result.WriteByte(byte(i))
-	}
-	return buf
-}*/
-
-func (m *MetricsRegistry) get(metricType Type, key string, tags AnyTags) Metric {
+func (m *Registry) get(metricType Type, key string, tags AnyTags) Metric {
 	considerHiddenTags(tags)
-	storageKeyBuf := generateStorageKey(metricType, key, tags)
-	rI, _ := m.storage.GetByBytes(storageKeyBuf.result.Bytes())
-	storageKeyBuf.Release()
+	rI, _ := m.storage.GetByUint64(generateStorageKey(metricType, key, tags))
 	if rI == nil {
 		return nil
 	}
@@ -156,45 +124,29 @@ func (m *MetricsRegistry) get(metricType Type, key string, tags AnyTags) Metric 
 	return r
 }
 
-/*func (m *MetricsRegistry) getWithCache(metricType Type, key string, tags AnyTags) Metric {
-	buf := m.getCallerCacheKey()
-	if metric, _ := m.getterCache.Get(buf.result.Bytes()); metric != nil {
-		buf.Unlock()
-		return metric.(Metric)
-	}
-	if metric := m.get(metricType, key, tags); metric != nil {
-		m.getterCache.Set(buf.result.Bytes(), metric)
-		buf.Unlock()
-		return metric
-	}
-	buf.Unlock()
-	return nil
-}*/
-
-func (m *MetricsRegistry) Get(metricType Type, key string, tags AnyTags) Metric {
+func (m *Registry) Get(metricType Type, key string, tags AnyTags) Metric {
 	if m.IsDisabled() {
 		return nil
 	}
 	return m.get(metricType, key, tags)
-	//return m.getWithCache(metricType, key, tags)
 }
 
-func (m *MetricsRegistry) set(metric Metric) error {
-	m.storage.Set(metric.(interface{ GetKey() []byte }).GetKey(), metric)
+func (m *Registry) set(metric Metric) error {
+	m.storage.Set(metric.(interface{ GetKey() uint64 }).GetKey(), metric)
 	return nil
 }
 
-func (m *MetricsRegistry) Set(metric Metric) error {
-	if v, _ := m.storage.GetByBytes(metric.(interface{ GetKey() []byte }).GetKey()); v != nil {
+func (m *Registry) Set(metric Metric) error {
+	if v, _ := m.storage.GetByUint64(metric.(interface{ GetKey() uint64 }).GetKey()); v != nil {
 		return ErrAlreadyExists
 	}
 
 	return m.set(metric)
 }
 
-func (m *MetricsRegistry) list() (result Metrics) {
+func (m *Registry) list() (result Metrics) {
 	for _, metricKey := range m.storage.Keys() {
-		metric, _ := m.storage.GetByBytes(metricKey.([]byte))
+		metric, _ := m.storage.GetByUint64(metricKey.(uint64))
 		if metric == nil {
 			continue
 		}
@@ -203,36 +155,36 @@ func (m *MetricsRegistry) list() (result Metrics) {
 	return
 }
 
-func (m *MetricsRegistry) listSorted() (result Metrics) {
+func (m *Registry) listSorted() (result Metrics) {
 	list := m.list()
 	list.Sort()
 	return list
 }
 
-func (m *MetricsRegistry) List() (result Metrics) {
+func (m *Registry) List() (result Metrics) {
 	return m.listSorted()
 	//return m.list()
 }
 
-func (m *MetricsRegistry) remove(metric Metric) {
+func (m *Registry) remove(metric Metric) {
 	metric.Stop()
-	m.storage.Unset(metric.(interface{ GetKey() []byte }).GetKey())
+	m.storage.Unset(metric.(interface{ GetKey() uint64 }).GetKey())
 }
 
-func (m *MetricsRegistry) GetSender() Sender {
+func (m *Registry) GetSender() Sender {
 	return m.metricSender
 }
 
-func (m *MetricsRegistry) SetDefaultSender(newMetricSender Sender) {
+func (m *Registry) SetDefaultSender(newMetricSender Sender) {
 	m.stopMonitor()
 	m.metricSender = newMetricSender
 	m.startMonitor()
 }
-func (m *MetricsRegistry) GetDefaultSender() Sender {
+func (m *Registry) GetDefaultSender() Sender {
 	return m.metricSender
 }
 
-func (m *MetricsRegistry) SetDefaultGCEnabled(newGCEnabledValue bool) {
+func (m *Registry) SetDefaultGCEnabled(newGCEnabledValue bool) {
 	if newGCEnabledValue {
 		atomic.StoreUint32(&m.defaultGCEnabled, 1)
 	} else {
@@ -241,18 +193,18 @@ func (m *MetricsRegistry) SetDefaultGCEnabled(newGCEnabledValue bool) {
 }
 
 func SetDefaultGCEnabled(newValue bool) {
-	metricsRegistry.SetDefaultGCEnabled(newValue)
+	registry.SetDefaultGCEnabled(newValue)
 }
 
-func (m *MetricsRegistry) GetDefaultGCEnabled() bool {
+func (m *Registry) GetDefaultGCEnabled() bool {
 	return atomic.LoadUint32(&m.defaultGCEnabled) != 0
 }
 
 func GetDefaultGCEnabled() bool {
-	return metricsRegistry.GetDefaultGCEnabled()
+	return registry.GetDefaultGCEnabled()
 }
 
-func (m *MetricsRegistry) SetDefaultIsRunned(newIsRunnedValue bool) {
+func (m *Registry) SetDefaultIsRunned(newIsRunnedValue bool) {
 	if newIsRunnedValue {
 		atomic.StoreUint32(&m.defaultIsRunned, 1)
 	} else {
@@ -261,22 +213,22 @@ func (m *MetricsRegistry) SetDefaultIsRunned(newIsRunnedValue bool) {
 }
 
 func SetDefaultIsRunned(newValue bool) {
-	metricsRegistry.SetDefaultIsRunned(newValue)
+	registry.SetDefaultIsRunned(newValue)
 }
 
-func (m *MetricsRegistry) GetDefaultIsRunned() bool {
+func (m *Registry) GetDefaultIsRunned() bool {
 	return atomic.LoadUint32(&m.defaultIsRunned) != 0
 }
 
 func GetDefaultIsRunned() bool {
-	return metricsRegistry.GetDefaultIsRunned()
+	return registry.GetDefaultIsRunned()
 }
 
-func (m *MetricsRegistry) getMonitorState() uint64 {
+func (m *Registry) getMonitorState() uint64 {
 	return atomic.LoadUint64(&m.monitorState)
 }
 
-func (m *MetricsRegistry) setMonitorState(newState uint64) uint64 { // returns the old state
+/*func (m *MetricsRegistry) setMonitorState(newState uint64) uint64 { // returns the old state
 	// FSM state switcher
 	if atomic.LoadUint64(&m.monitorState) == newState {
 		return newState
@@ -327,58 +279,58 @@ func (m *MetricsRegistry) setMonitorState(newState uint64) uint64 { // returns t
 	}
 
 	panic("Shouldn't happend, ever")
-	return 0
-}
+}*/
 
-func (m *MetricsRegistry) startMonitor() {
+func (m *Registry) startMonitor() {
 	return
-
-	switch m.setMonitorState(monitorState_Starting) {
-	case monitorState_Starting:
-		// setMonitorState doesn't change from monitorStatus_Runningto monitorStatus_Starting
-		// so there's no need to fix the "state" here.
-		return // already starting
-	case monitorState_Started:
-		return // already started
-	}
-
-	var mem runtime.MemStats
-	pauses_latency := int64(-1)
-
-	go func() {
-		interval := m.GetDefaultIterateInterval()
-		for m.getMonitorState() == monitorState_Started {
-			runtime.ReadMemStats(&mem)
-
-			if mem.NumGC != 0 {
-				pauses_latency = int64(mem.PauseTotalNs / uint64(mem.NumGC))
-			} else {
-				pauses_latency = -1
-			}
-
-			time.Sleep(interval)
+	/*
+		switch m.setMonitorState(monitorState_Starting) {
+		case monitorState_Starting:
+			// setMonitorState doesn't change from monitorStatus_Runningto monitorStatus_Starting
+			// so there's no need to fix the "state" here.
+			return // already starting
+		case monitorState_Started:
+			return // already started
 		}
-		m.setMonitorState(monitorState_Stopped)
-	}()
 
-	GaugeInt64Func(`runtime.memory.alloc.bytes`, Tags{`type`: `total`}, func() int64 { return int64(mem.Alloc) }).SetGCEnabled(false)
-	GaugeInt64Func(`runtime.memory.alloc.bytes`, Tags{`type`: `heap`}, func() int64 { return int64(mem.HeapAlloc) }).SetGCEnabled(false)
-	GaugeInt64Func(`runtime.memory.sys.bytes`, nil, func() int64 { return int64(mem.Sys) }).SetGCEnabled(false)
-	GaugeInt64Func(`runtime.memory.heap_objects.count`, nil, func() int64 { return int64(mem.HeapObjects) }).SetGCEnabled(false)
-	GaugeInt64Func(`runtime.gc.next.bytes`, nil, func() int64 { return int64(mem.NextGC) }).SetGCEnabled(false)
-	GaugeInt64Func(`runtime.gc.pauses.ns`, nil, func() int64 { return int64(mem.PauseTotalNs) }).SetGCEnabled(false)
-	GaugeInt64Func(`runtime.gc.pauses.count`, nil, func() int64 { return int64(mem.NumGC) }).SetGCEnabled(false)
-	GaugeInt64Func(`runtime.gc.pauses.latency.ns`, nil, func() int64 { return pauses_latency }).SetGCEnabled(false)
-	GaugeInt64Func(`runtime.cpu.fraction.e6`, nil, func() int64 { return int64(mem.GCCPUFraction * 1000000) }).SetGCEnabled(false)
+		var mem runtime.MemStats
+		pauses_latency := int64(-1)
+
+		go func() {
+			interval := m.GetDefaultIterateInterval()
+			for m.getMonitorState() == monitorState_Started {
+				runtime.ReadMemStats(&mem)
+
+				if mem.NumGC != 0 {
+					pauses_latency = int64(mem.PauseTotalNs / uint64(mem.NumGC))
+				} else {
+					pauses_latency = -1
+				}
+
+				time.Sleep(interval)
+			}
+			m.setMonitorState(monitorState_Stopped)
+		}()
+
+		GaugeInt64Func(`runtime.memory.alloc.bytes`, Tags{`type`: `total`}, func() int64 { return int64(mem.Alloc) }).SetGCEnabled(false)
+		GaugeInt64Func(`runtime.memory.alloc.bytes`, Tags{`type`: `heap`}, func() int64 { return int64(mem.HeapAlloc) }).SetGCEnabled(false)
+		GaugeInt64Func(`runtime.memory.sys.bytes`, nil, func() int64 { return int64(mem.Sys) }).SetGCEnabled(false)
+		GaugeInt64Func(`runtime.memory.heap_objects.count`, nil, func() int64 { return int64(mem.HeapObjects) }).SetGCEnabled(false)
+		GaugeInt64Func(`runtime.gc.next.bytes`, nil, func() int64 { return int64(mem.NextGC) }).SetGCEnabled(false)
+		GaugeInt64Func(`runtime.gc.pauses.ns`, nil, func() int64 { return int64(mem.PauseTotalNs) }).SetGCEnabled(false)
+		GaugeInt64Func(`runtime.gc.pauses.count`, nil, func() int64 { return int64(mem.NumGC) }).SetGCEnabled(false)
+		GaugeInt64Func(`runtime.gc.pauses.latency.ns`, nil, func() int64 { return pauses_latency }).SetGCEnabled(false)
+		GaugeInt64Func(`runtime.cpu.fraction.e6`, nil, func() int64 { return int64(mem.GCCPUFraction * 1000000) }).SetGCEnabled(false)
+	*/
 }
 
-func (m *MetricsRegistry) stopMonitor() {
+func (m *Registry) stopMonitor() {
 	return
 
-	m.setMonitorState(monitorState_Stopping)
+	//m.setMonitorState(monitorState_Stopping)
 }
 
-func (m *MetricsRegistry) GC() {
+func (m *Registry) GC() {
 	for _, metricKey := range m.storage.Keys() {
 		metricI, _ := m.storage.Get(metricKey)
 		if metricI == nil {
@@ -393,43 +345,38 @@ func (m *MetricsRegistry) GC() {
 }
 
 func GC() {
-	metricsRegistry.GC()
+	registry.GC()
 }
 
-func (metricsRegistry *MetricsRegistry) Register(metric Metric, key string, inTags AnyTags) error {
-	tags := Tags{}
+func (metricsRegistry *Registry) Register(metric Metric, key string, inTags AnyTags) error {
+	tags := NewFastTags()
+	for _, tag := range defaultTags {
+		tags.Set(tag.Key, tag.StringValue)
+	}
 	if inTags != nil {
 		inTags.Each(func(k string, v interface{}) bool {
-			tags[k] = v
+			tags.Set(k, v)
 			return true
 		})
-	}
-	for _, tag := range defaultTags {
-		tags[tag.Key] = tag.StringValue
 	}
 
 	commons := metric.(interface{ GetCommons() *metricCommon }).GetCommons()
 	commons.tags = tags
+	commons.storageKey = generateStorageKey(metric.GetType(), key, tags)
 
-	keyBuf := generateStorageKey(metric.GetType(), key, tags)
-	storageKey := keyBuf.result.String()
-	keyBuf.Release()
-
-	commons.storageKey = make([]byte, len(storageKey))
-	copy(commons.storageKey, storageKey)
-	return metricsRegistry.Set(metric)
+	return registry.Set(metric)
 }
 
 func List() []Metric {
-	return metricsRegistry.List()
+	return registry.List()
 }
 
 func Get(metricType Type, key string, tags AnyTags) Metric {
-	return metricsRegistry.Get(metricType, key, tags)
+	return registry.Get(metricType, key, tags)
 }
 
 // copied from https://github.com/demdxx/sort-algorithms/blob/master/algorithms.go
-func BubbleSort(data sort.StringSlice) {
+func BubbleSort(data stringSlice) {
 	n := data.Len() - 1
 	b := false
 	for i := 0; i < n; i++ {
@@ -447,7 +394,7 @@ func BubbleSort(data sort.StringSlice) {
 }
 
 func considerHiddenTags(tags AnyTags) {
-	hiddenTags := metricsRegistry.getHiddenTags()
+	hiddenTags := registry.getHiddenTags()
 	if len(hiddenTags) == 0 {
 		return
 	}
@@ -481,109 +428,47 @@ func considerHiddenTags(tags AnyTags) {
 	}
 }
 
-func generateStorageKey(metricType Type, key string, tags AnyTags) *preallocatedStringerBuffer {
-	// It's required to avoid memory allocations. So if we allocated a buffer once, we reuse it.
+func generateStorageKey(metricType Type, key string, tags AnyTags) uint64 {
+	reusables := newKeyGeneratorReusables()
+	reusables.hasher.WriteString(key)
 
-	buf := newStringBuffer()
-	buf.result.WriteString(key)
-
-	for _, tag := range defaultTags {
-		buf.result.WriteString(`,`)
-		buf.result.WriteString(tag.Key)
-		buf.result.WriteString(`=`)
-		buf.result.WriteString(tag.StringValue)
-	}
-
-	switch inTags := tags.(type) {
-	case nil:
-	case Tags:
-		buf.tagKeys = buf.tagKeys[:0]
-		for k := range inTags {
-			if defaultTags.IsSet(k) {
-				continue
-			}
-			buf.tagKeys = append(buf.tagKeys, k)
-		}
-		if len(buf.tagKeys) > 0 {
-			if len(buf.tagKeys) > 24 {
-				sort.Strings(buf.tagKeys) // It requires to wrap the slice into an interface, so it has a memory allocation
-			} else {
-				BubbleSort(buf.tagKeys)
-			}
-		}
-
-		for _, k := range buf.tagKeys {
-			buf.result.WriteString(`,`)
-			buf.result.WriteString(k)
-			buf.result.WriteString(`=`)
-			buf.result.WriteString(TagValueToString(inTags[k]))
-		}
-	case *FastTags:
-		inTags.Sort()
-		for _, tag := range *inTags {
-			if defaultTags.IsSet(tag.Key) {
-				continue
-			}
-			buf.result.WriteString(`,`)
-			buf.result.WriteString(tag.Key)
-			buf.result.WriteString(`=`)
-			buf.result.WriteString(tag.StringValue)
-		}
-	default:
-		buf.tagKeys = buf.tagKeys[:0]
-		inTags.Each(func(k string, v interface{}) bool {
-			if defaultTags.IsSet(k) {
-				return true
-			}
-			buf.tagKeys = append(buf.tagKeys, k)
-			return true
-		})
-		if len(buf.tagKeys) > 0 {
-			if len(buf.tagKeys) > 24 {
-				sort.Strings(buf.tagKeys) // It requires to wrap the slice into an interface, so it has a memory allocation
-			} else {
-				BubbleSort(buf.tagKeys)
-			}
-		}
-
-		for _, k := range buf.tagKeys {
-			buf.result.WriteString(`,`)
-			buf.result.WriteString(k)
-			buf.result.WriteString(`=`)
-			buf.result.WriteString(TagValueToString(inTags.Get(k)))
-		}
+	if tags != nil {
+		reusables.hasher.WriteString(`,`)
+		tags.WriteAsString(reusables.hasher)
 	}
 
 	if metricType > 0 {
-		buf.result.WriteString("@")
-		buf.result.WriteString(metricType.String())
+		reusables.hasher.WriteString("@")
+		reusables.hasher.WriteString(metricType.String())
 	}
 
-	return buf
+	result := reusables.hasher.Sum64()
+	reusables.Release()
+
+	return result
 }
 
 func init() {
-	metricsRegistry.storage = atomicmap.New()
-	//metricsRegistry.getterCache = atomicmap.New()
+	registry.storage = atomicmap.New()
 }
 
 func SetDefaultSender(newMetricSender Sender) {
-	metricsRegistry.SetDefaultSender(newMetricSender)
+	registry.SetDefaultSender(newMetricSender)
 }
 
 func GetDefaultSender() Sender {
-	return metricsRegistry.GetDefaultSender()
+	return registry.GetDefaultSender()
 }
 
-func SetMetricsIterateIntervaler(newMetricsIterateIntervaler MetricsIterateIntervaler) {
-	metricsRegistry.metricsIterateIntervaler = newMetricsIterateIntervaler
+func SetMetricsIterateIntervaler(newMetricsIterateIntervaler IterateIntervaler) {
+	registry.metricsIterateIntervaler = newMetricsIterateIntervaler
 }
 
 func SetDefaultTags(newDefaultAnyTags AnyTags) {
 	defaultTags = *newDefaultAnyTags.ToFastTags()
 }
 
-func (m *MetricsRegistry) getHiddenTags() hiddenTagsInternal {
+func (m *Registry) getHiddenTags() hiddenTagsInternal {
 	result := atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.hiddenTags)))
 	if result == nil {
 		return nil
@@ -591,7 +476,7 @@ func (m *MetricsRegistry) getHiddenTags() hiddenTagsInternal {
 	return *(*hiddenTagsInternal)(result)
 }
 
-func (m *MetricsRegistry) SetHiddenTags(newRawHiddenTags HiddenTags) {
+func (m *Registry) SetHiddenTags(newRawHiddenTags HiddenTags) {
 	var newHiddenTags hiddenTagsInternal
 	if len(newRawHiddenTags) == 0 {
 		newHiddenTags = nil
@@ -605,12 +490,12 @@ func (m *MetricsRegistry) SetHiddenTags(newRawHiddenTags HiddenTags) {
 	atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&m.hiddenTags)), (unsafe.Pointer)(&newHiddenTags))
 }
 
-func (m *MetricsRegistry) IsHiddenTag(tagKey string, tagValue interface{}) bool {
+func (m *Registry) IsHiddenTag(tagKey string, tagValue interface{}) bool {
 	hiddenTags := m.getHiddenTags()
 	return hiddenTags.IsHiddenTag(tagKey, tagValue)
 }
 
-func (m *MetricsRegistry) Reset() {
+func (m *Registry) Reset() {
 	for _, metricKey := range m.storage.Keys() {
 		metric, _ := m.storage.Get(metricKey)
 		if metric == nil {
@@ -622,13 +507,13 @@ func (m *MetricsRegistry) Reset() {
 }
 
 func Reset() {
-	metricsRegistry.Reset()
+	registry.Reset()
 }
 
 func IsHiddenTag(tagKey string, tagValue interface{}) bool {
-	return metricsRegistry.IsHiddenTag(tagKey, tagValue)
+	return registry.IsHiddenTag(tagKey, tagValue)
 }
 
 func SetHiddenTags(newRawHiddenTags HiddenTags) {
-	metricsRegistry.SetHiddenTags(newRawHiddenTags)
+	registry.SetHiddenTags(newRawHiddenTags)
 }

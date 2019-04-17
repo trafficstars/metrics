@@ -3,7 +3,6 @@ package metrics
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -40,7 +39,7 @@ func (metric *metricCommon) init(parent Metric, key string, tags AnyTags, getWas
 	metric.SetSender(GetDefaultSender())
 	metric.SetGCEnabled(GetDefaultGCEnabled())
 
-	metricsRegistry.Register(parent, key, tags)
+	registry.Register(parent, key, tags)
 
 	metric.getWasUseless = getWasUseless
 	metric.metricRegistryItem.init(parent, key)
@@ -208,7 +207,7 @@ func (m *metricCommon) Stop() {
 func (metric *metricCommon) MarshalJSON() ([]byte, error) {
 	nameJSON, _ := json.Marshal(metric.name)
 	descriptionJSON, _ := json.Marshal(metric.description)
-	tagsJSON, _ := json.Marshal(string(metric.storageKey[:strings.IndexByte(string(metric.storageKey), '@')]))
+	tagsJSON, _ := json.Marshal(string(metric.tags.String()))
 	typeJSON, _ := json.Marshal(string(metric.GetType()))
 	value := metric.GetFloat64()
 

@@ -10,8 +10,10 @@ const (
 	TypeGaugeFloat64Func
 	TypeGaugeAggregativeFlow
 	TypeGaugeAggregativeBuffered
+	TypeGaugeAggregativeSimple
 	TypeTimingFlow
 	TypeTimingBuffered
+	TypeTimingSimple
 )
 
 var (
@@ -24,8 +26,10 @@ var (
 		TypeGaugeFloat64Func:         `gauge_float64_func`,
 		TypeGaugeAggregativeFlow:     `gauge_aggregative_flow`,
 		TypeGaugeAggregativeBuffered: `gauge_aggregative_buffered`,
+		TypeGaugeAggregativeSimple:   `gauge_aggregative_simple`,
 		TypeTimingFlow:               `timing_flow`,
 		TypeTimingBuffered:           `timing_buffered`,
+		TypeTimingSimple:             `timing_simple`,
 	}
 )
 

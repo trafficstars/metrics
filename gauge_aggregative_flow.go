@@ -19,7 +19,7 @@ func GaugeAggregativeFlow(key string, tags AnyTags) *MetricGaugeAggregativeFlow 
 		return (*MetricGaugeAggregativeFlow)(nil)
 	}
 
-	m := metricsRegistry.Get(TypeGaugeAggregativeFlow, key, tags)
+	m := registry.Get(TypeGaugeAggregativeFlow, key, tags)
 	if m != nil {
 		return m.(*MetricGaugeAggregativeFlow)
 	}

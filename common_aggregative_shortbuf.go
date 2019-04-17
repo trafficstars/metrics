@@ -6,11 +6,20 @@ import (
 )
 
 const (
-	// Buffer size. The more this buffer the more CPU is utilized (on metric `GetPercentiles` which is used by `List()`), the more RAM is utilized and more precise values are.
-	bufferSize = 1000
+	// The default value of the buffer size. The more this buffer the more CPU is utilized (on metric `GetPercentiles`
+	// which is used by `List()`), the more RAM is utilized and more precise values are.
+	defaultBufferSize = 1000
 )
 
-type aggregativeBufferItems [bufferSize]float64
+var (
+	bufferSize = uint(defaultBufferSize)
+)
+
+func SetAggregativeBufferSize(newBufferSize uint) {
+	bufferSize = newBufferSize
+}
+
+type aggregativeBufferItems []float64
 
 func (s *aggregativeBuffer) sortBuiltin() {
 	sort.Slice(s.data[:s.filledSize], func(i, j int) bool { return s.data[i] < s.data[j] })
@@ -52,13 +61,13 @@ func (m *metricCommonAggregativeShortBuf) NewAggregativeStatistics() Aggregative
 	return newAggregativeStatisticsShortBuf()
 }
 
-type AggregativeStatisticsShortBuf struct {
+type aggregativeStatisticsShortBuf struct {
 	aggregativeBuffer
 
 	tickID uint64
 }
 
-func (s *AggregativeStatisticsShortBuf) getPercentile(percentile float64) *float64 {
+func (s *aggregativeStatisticsShortBuf) getPercentile(percentile float64) *float64 {
 	if s.filledSize == 0 {
 		return &[]float64{0}[0]
 	}
@@ -67,14 +76,14 @@ func (s *AggregativeStatisticsShortBuf) getPercentile(percentile float64) *float
 	return &[]float64{s.data[percentileIdx]}[0]
 }
 
-func (s *AggregativeStatisticsShortBuf) GetPercentile(percentile float64) *float64 {
+func (s *aggregativeStatisticsShortBuf) GetPercentile(percentile float64) *float64 {
 	s.locker.Lock()
 	r := s.getPercentile(percentile)
 	s.locker.Unlock()
 	return r
 }
 
-func (s *AggregativeStatisticsShortBuf) GetPercentiles(percentiles []float64) []*float64 {
+func (s *aggregativeStatisticsShortBuf) GetPercentiles(percentiles []float64) []*float64 {
 	r := make([]*float64, 0, len(percentiles))
 	s.locker.Lock()
 	for _, percentile := range percentiles {
@@ -84,9 +93,9 @@ func (s *AggregativeStatisticsShortBuf) GetPercentiles(percentiles []float64) []
 	return r
 }
 
-func (s *AggregativeStatisticsShortBuf) considerValue(v float64) {
+func (s *aggregativeStatisticsShortBuf) considerValue(v float64) {
 	s.tickID++
-	if s.filledSize < bufferSize {
+	if s.filledSize < uint32(bufferSize) {
 		s.data[s.filledSize] = v
 		s.filledSize++
 
@@ -96,7 +105,7 @@ func (s *AggregativeStatisticsShortBuf) considerValue(v float64) {
 	// The more history we have the more rarely we should update items
 	// That's why here's rand.Intn(s.tickID) instead of rand.Intn(bufferSize)
 	randIdx := rand.Intn(int(s.tickID))
-	if randIdx >= bufferSize {
+	if randIdx >= int(bufferSize) {
 		return
 	}
 
@@ -105,7 +114,7 @@ func (s *AggregativeStatisticsShortBuf) considerValue(v float64) {
 	s.isSorted = false
 }
 
-func (s *AggregativeStatisticsShortBuf) ConsiderValue(v float64) {
+func (s *aggregativeStatisticsShortBuf) ConsiderValue(v float64) {
 	s.locker.Lock()
 	s.considerValue(v)
 	s.locker.Unlock()
@@ -118,20 +127,20 @@ func (s *AggregativeStatisticsShortBuf) ConsiderValue(v float64) {
 	(*aggregativeBufferItem)(atomic.SwapPointer((*unsafe.Pointer)((unsafe.Pointer)(&s.data[idx]), newItem)).Release()
 }*/
 
-func (s *AggregativeStatisticsShortBuf) Set(value float64) {
+func (s *aggregativeStatisticsShortBuf) Set(value float64) {
 	s.locker.Lock()
 	s.data[0] = value
 	s.filledSize = 1
 	s.locker.Unlock()
 }
 
-func (s *AggregativeStatisticsShortBuf) MergeStatistics(oldSI AggregativeStatistics) {
+func (s *aggregativeStatisticsShortBuf) MergeStatistics(oldSI AggregativeStatistics) {
 	if oldSI == nil {
 		return
 	}
-	oldS := oldSI.(*AggregativeStatisticsShortBuf)
+	oldS := oldSI.(*aggregativeStatisticsShortBuf)
 
-	if s.filledSize+oldS.filledSize <= bufferSize {
+	if s.filledSize+oldS.filledSize <= uint32(bufferSize) {
 		copy(s.data[s.filledSize:], oldS.data[:oldS.filledSize])
 		s.filledSize += oldS.filledSize
 		s.tickID += oldS.tickID
@@ -140,10 +149,10 @@ func (s *AggregativeStatisticsShortBuf) MergeStatistics(oldSI AggregativeStatist
 	}
 
 	origFilledSize := s.filledSize
-	if s.filledSize < bufferSize {
-		delta := bufferSize - s.filledSize
+	if s.filledSize < uint32(bufferSize) {
+		delta := uint32(bufferSize) - s.filledSize
 		copy(s.data[s.filledSize:], oldS.data[oldS.filledSize-delta:])
-		s.filledSize = bufferSize
+		s.filledSize = uint32(bufferSize)
 		oldS.filledSize -= delta
 	}
 

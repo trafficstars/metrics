@@ -19,7 +19,7 @@ func Count(key string, tags AnyTags) *MetricCount {
 		return (*MetricCount)(nil)
 	}
 
-	m := metricsRegistry.Get(TypeCount, key, tags)
+	m := registry.Get(TypeCount, key, tags)
 	if m != nil {
 		return m.(*MetricCount)
 	}

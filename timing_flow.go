@@ -23,7 +23,7 @@ func TimingFlow(key string, tags AnyTags) *MetricTimingFlow {
 		return (*MetricTimingFlow)(nil)
 	}
 
-	m := metricsRegistry.Get(TypeTimingFlow, key, tags)
+	m := registry.Get(TypeTimingFlow, key, tags)
 	if m != nil {
 		return m.(*MetricTimingFlow)
 	}

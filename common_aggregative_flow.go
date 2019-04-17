@@ -51,7 +51,7 @@ func guessPercentile(curValue, newValue float64, count uint64, perc float64) flo
 	return (curValue*inertness + newValue) / (inertness + 1)
 }
 
-type AggregativeStatisticsFlow struct {
+type aggregativeStatisticsFlow struct {
 	tickID uint64
 
 	Per1  AtomicFloat64Ptr
@@ -61,7 +61,7 @@ type AggregativeStatisticsFlow struct {
 	Per99 AtomicFloat64Ptr
 }
 
-func (s *AggregativeStatisticsFlow) GetPercentile(percentile float64) *float64 {
+func (s *aggregativeStatisticsFlow) GetPercentile(percentile float64) *float64 {
 	if s == nil {
 		return nil
 	}
@@ -80,7 +80,7 @@ func (s *AggregativeStatisticsFlow) GetPercentile(percentile float64) *float64 {
 	return nil
 }
 
-func (s *AggregativeStatisticsFlow) GetPercentiles(percentiles []float64) []*float64 {
+func (s *aggregativeStatisticsFlow) GetPercentiles(percentiles []float64) []*float64 {
 	r := make([]*float64, 0, len(percentiles))
 	for _, percentile := range percentiles {
 		r = append(r, s.GetPercentile(percentile))
@@ -89,7 +89,7 @@ func (s *AggregativeStatisticsFlow) GetPercentiles(percentiles []float64) []*flo
 }
 
 // ConsiderValue should be called only for locked items
-func (s *AggregativeStatisticsFlow) ConsiderValue(v float64) {
+func (s *aggregativeStatisticsFlow) ConsiderValue(v float64) {
 	s.tickID++
 
 	if s.tickID == 1 {
@@ -108,7 +108,7 @@ func (s *AggregativeStatisticsFlow) ConsiderValue(v float64) {
 	s.Per99.SetFast(guessPercentile(s.Per99.GetFast(), v, s.tickID, 0.99))
 }
 
-func (s *AggregativeStatisticsFlow) Set(value float64) {
+func (s *aggregativeStatisticsFlow) Set(value float64) {
 	s.Per1.Set(value)
 	s.Per10.Set(value)
 	s.Per50.Set(value)
@@ -116,11 +116,11 @@ func (s *AggregativeStatisticsFlow) Set(value float64) {
 	s.Per99.Set(value)
 }
 
-func (s *AggregativeStatisticsFlow) MergeStatistics(oldSI AggregativeStatistics) {
+func (s *aggregativeStatisticsFlow) MergeStatistics(oldSI AggregativeStatistics) {
 	if oldSI == nil {
 		return
 	}
-	oldS := oldSI.(*AggregativeStatisticsFlow)
+	oldS := oldSI.(*aggregativeStatisticsFlow)
 
 	s.Per1.SetFast((s.Per1.GetFast()*float64(s.tickID) + oldS.Per1.GetFast()*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID))
 	s.Per10.SetFast((s.Per10.GetFast()*float64(s.tickID) + oldS.Per10.GetFast()*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID))

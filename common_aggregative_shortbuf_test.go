@@ -119,7 +119,7 @@ func init() {
 	{
 		m := testMShortBuf
 		m.init(m, `test`, nil)
-		for i := 0; i < bufferSize; i++ {
+		for i := uint(0); i < bufferSize; i++ {
 			m.considerValue(float64(i))
 		}
 	}
@@ -127,7 +127,7 @@ func init() {
 	{
 		m := testMFlow
 		m.init(m, `test`, nil)
-		for i := 0; i < bufferSize; i++ {
+		for i := uint(0); i < bufferSize; i++ {
 			m.considerValue(float64(i))
 		}
 	}

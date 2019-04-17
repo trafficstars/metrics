@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"bytes"
 	"sort"
 )
 
@@ -13,11 +12,6 @@ func (s Metrics) Sort() {
 
 func (s Metrics) sortBuiltin() {
 	sort.Slice(s, func(i, j int) bool {
-		if bytes.Compare(
-			s[i].(interface{ GetKey() []byte }).GetKey(),
-			s[j].(interface{ GetKey() []byte }).GetKey()) < 0 {
-			return true
-		}
-		return false
+		return s[i].(interface{ GetKey() uint64 }).GetKey() < s[j].(interface{ GetKey() uint64 }).GetKey()
 	})
 }

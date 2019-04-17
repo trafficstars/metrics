@@ -187,3 +187,54 @@ func (tags Tags) ToMap(fieldMaps ...map[string]interface{}) map[string]interface
 	}
 	return fields
 }
+
+func (tags Tags) String() string {
+	buf := newBytesBuffer()
+	tags.WriteAsString(buf)
+	result := buf.String()
+	buf.Release()
+	return result
+}
+
+func (tags Tags) WriteAsString(writeStringer interface{ WriteString(string) (int, error) }) {
+	tagsCount := 0
+
+	for _, tag := range defaultTags {
+		if tagsCount != 0 {
+			writeStringer.WriteString(`,`)
+		}
+		writeStringer.WriteString(tag.Key)
+		writeStringer.WriteString(`=`)
+		writeStringer.WriteString(tag.StringValue)
+		tagsCount++
+	}
+
+	keys := newStringSlice()
+
+	for k := range tags {
+		if defaultTags.IsSet(k) {
+			continue
+		}
+		*keys = append(*keys, k)
+	}
+
+	if len(*keys) > 0 {
+		if len(*keys) > 24 {
+			sort.Strings(*keys) // It requires to wrap the slice into an interface, so it has a memory allocation
+		} else {
+			BubbleSort(*keys)
+		}
+	}
+
+	for _, k := range *keys {
+		if tagsCount != 0 {
+			writeStringer.WriteString(`,`)
+		}
+		writeStringer.WriteString(k)
+		writeStringer.WriteString(`=`)
+		writeStringer.WriteString(TagValueToString(tags[k]))
+		tagsCount++
+	}
+	
+	keys.Release()
+}

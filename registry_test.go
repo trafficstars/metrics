@@ -55,10 +55,7 @@ func BenchmarkGenerateStorageKey(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			buf := generateStorageKey(TypeCount, `test`, nil)
-			if buf != nil {
-				buf.Release()
-			}
+			generateStorageKey(TypeCount, `test`, nil)
 		}
 	})
 }
@@ -203,25 +200,23 @@ func BenchmarkFastTag_Set(b *testing.B) {
 	tag.Release()
 }
 
-func BenchmarkTagsString(b *testing.B) {
+func BenchmarkGenKeyTags(b *testing.B) {
 	initDefaultTags()
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			buf := generateStorageKey(TypeGaugeInt64, `testKey`, testTags)
-			buf.Release()
+			generateStorageKey(TypeGaugeInt64, `testKey`, testTags)
 		}
 	})
 }
 
-func BenchmarkTagsFastString(b *testing.B) {
+func BenchmarkGenKeyFastTags(b *testing.B) {
 	initDefaultTags()
 	testTagsFast := testTags.ToFastTags()
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			buf := generateStorageKey(TypeGaugeInt64, `testKey`, testTagsFast)
-			buf.Release()
+			generateStorageKey(TypeGaugeInt64, `testKey`, testTagsFast)
 		}
 	})
 }
@@ -249,14 +244,12 @@ func TestGet(t *testing.T) {
 		Set("format_id", "TestTag").
 		Set("is_priv", true)
 
-	m := metricsRegistry.Get(TypeCount, `TestGet`, tags)
+	m := registry.Get(TypeCount, `TestGet`, tags)
 	if m == nil {
 		considerHiddenTags(tags)
-		storageKeyBuf := generateStorageKey(TypeCount, `TestGet`, tags)
-		fmt.Println("Key:", storageKeyBuf.result.String())
-		storageKeyBuf.Release()
-		for _, key := range metricsRegistry.storage.Keys() {
-			metric, _ := metricsRegistry.storage.GetByBytes(key.([]byte))
+		fmt.Println("Key:", generateStorageKey(TypeCount, `TestGet`, tags))
+		for _, key := range registry.storage.Keys() {
+			metric, _ := registry.storage.GetByBytes(key.([]byte))
 			if metric == nil {
 				continue
 			}
@@ -306,39 +299,12 @@ func TestRegistry(t *testing.T) {
 	tags1[`key`] = `dsp.bid.tjnative`
 	GaugeInt64(`requests`, tags1)
 
-	assert.Equal(t, `dsp.bid`, Get(TypeGaugeInt64, `requests`, tags0).GetTag(`key`))
-	assert.Equal(t, `dsp.bid.tjnative`, Get(TypeGaugeInt64, `requests`, tags1).GetTag(`key`))
-}
-
-func TestTagsString(t *testing.T) {
-	initDefaultTags()
-	{
-		buf := generateStorageKey(TypeGaugeInt64, `testKey`, testTags)
-		assert.Equal(t, `testKey,defaultOneMoreTag=null,defaultTag0=0,defaultTagBool=false,defaultTagString=string,hello=world,server=idk,service=rotator,success=true,tag0=0,tag1=1,worker_id=-1@gauge_int64`, buf.result.String())
-		buf.Release()
+	metric0 := Get(TypeGaugeInt64, `requests`, tags0)
+	if !assert.Equal(t, `dsp.bid`, metric0.GetTag(`key`)) {
+		t.Errorf("tags: %v", metric0.GetTags())
 	}
-
-	SetHiddenTags(HiddenTags{HiddenTag{`app_id`, nil}, HiddenTag{`spot`, nil}, HiddenTag{`spot_id`, nil}, HiddenTag{`app`, nil}, HiddenTag{`campaign_id`, ExceptValues{123}}, HiddenTag{`user_id`, ExceptValues{12}}})
-
-	{
-		assert.Equal(t, `app`, metricsRegistry.getHiddenTags()[0].Key)
-
-		tags := Tags{`spot`: true, `campaign_id`: 123, `user_id`: 55}
-		considerHiddenTags(tags)
-		buf := generateStorageKey(TypeGaugeInt64, `testKey`, tags)
-		tags.Release()
-		assert.Equal(t, `testKey,defaultOneMoreTag=null,defaultTag0=0,defaultTagBool=false,defaultTagString=string,campaign_id=123,spot=hidden,user_id=hidden@gauge_int64`, buf.result.String())
-		buf.Release()
-	}
-
-	{
-		assert.Equal(t, `app`, metricsRegistry.getHiddenTags()[0].Key)
-
-		tags := NewFastTags().Set(`spot`, true).Set(`campaign_id`, 123).Set(`user_id`, 55)
-		considerHiddenTags(tags)
-		buf := generateStorageKey(TypeGaugeInt64, `testKey`, tags)
-		tags.Release()
-		assert.Equal(t, `testKey,defaultOneMoreTag=null,defaultTag0=0,defaultTagBool=false,defaultTagString=string,campaign_id=123,spot=hidden,user_id=hidden@gauge_int64`, buf.result.String())
-		buf.Release()
+	metric1 := Get(TypeGaugeInt64, `requests`, tags1)
+	if !assert.Equal(t, `dsp.bid.tjnative`, metric1.GetTag(`key`)) {
+		t.Errorf("tags: %v", metric1.GetTags())
 	}
 }

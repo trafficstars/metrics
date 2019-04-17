@@ -21,7 +21,7 @@ func GaugeInt64Func(key string, tags AnyTags, fn func() int64) *MetricGaugeInt64
 		return (*MetricGaugeInt64Func)(nil)
 	}
 
-	m := metricsRegistry.Get(TypeGaugeInt64Func, key, tags)
+	m := registry.Get(TypeGaugeInt64Func, key, tags)
 	if m != nil {
 		return m.(*MetricGaugeInt64Func)
 	}
