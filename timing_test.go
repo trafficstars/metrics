@@ -182,7 +182,6 @@ func BenchmarkNewTimingFlow(b *testing.B) {
 }
 
 func testGC(t *testing.T, fn func()) {
-	return
 	memoryReuse = false
 	Reset()
 	keys := registry.storage.Keys()
@@ -208,7 +207,7 @@ func testGC(t *testing.T, fn func()) {
 	assert.Equal(t, goroutinesCount, cleanedGoroutinesCount)
 	//assert.Equal(t, memstats.HeapInuse, cleanedMemstats.HeapInuse)
 
-	for i := 0; i < 400000; i++ {
+	for i := 0; i < 10000; i++ {
 		fn()
 	}
 	GC()
@@ -216,7 +215,7 @@ func testGC(t *testing.T, fn func()) {
 	runtime.GC()
 	runtime.ReadMemStats(&cleanedMemstats)
 
-	assert.Equal(t, uint64(0), (cleanedMemstats.HeapInuse-memstats.HeapInuse)/400000)
+	assert.Equal(t, true, (cleanedMemstats.HeapInuse-memstats.HeapInuse)/10000 < 100)
 
 	memoryReuse = true
 }

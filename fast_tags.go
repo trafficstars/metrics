@@ -75,6 +75,9 @@ func NewFastTags() *FastTags {
 }*/
 
 func (tags *FastTags) Release() {
+	if !memoryReuse {
+		return
+	}
 	for _, tag := range *tags {
 		tag.Release()
 	}

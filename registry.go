@@ -95,6 +95,9 @@ func newKeyGeneratorReusables() *keyGeneratorReusables {
 }
 
 func (b *keyGeneratorReusables) Release() {
+	if !memoryReuse {
+		return
+	}
 	b.buf.Reset()
 	keyGeneratorReusablesPool.Put(b)
 }

@@ -29,6 +29,9 @@ func NewTags() Tags {
 }
 
 func (tags Tags) Release() {
+	if !memoryReuse {
+		return
+	}
 	for k := range tags {
 		delete(tags, k)
 	}
@@ -235,6 +238,6 @@ func (tags Tags) WriteAsString(writeStringer interface{ WriteString(string) (int
 		writeStringer.WriteString(TagValueToString(tags[k]))
 		tagsCount++
 	}
-	
+
 	keys.Release()
 }

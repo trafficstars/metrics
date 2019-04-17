@@ -143,6 +143,9 @@ func newBytesBuffer() *bytesBuffer {
 }
 
 func (buf *bytesBuffer) Release() {
+	if !memoryReuse {
+		return
+	}
 	buf.Reset()
 	bytesBufferPool.Put(buf)
 }
@@ -152,6 +155,9 @@ func newStringSlice() *stringSlice {
 }
 
 func (s *stringSlice) Release() {
+	if !memoryReuse {
+		return
+	}
 	*s = (*s)[:0]
 	stringSlicePool.Put(s)
 }
