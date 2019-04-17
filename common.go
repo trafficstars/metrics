@@ -8,16 +8,16 @@ import (
 	"time"
 )
 
-var (
-	metricsCount uint64
-)
-
+// Sender is a sender to be used to periodically send metric values (for example to StatsD)
+// On high loaded systems we recommend to use prometheus and a status page with all exported metrics instead of sending
+// metrics to somewhere.
 type Sender interface {
 	SendInt64(metric Metric, key string, value int64) error
 	SendUint64(metric Metric, key string, value uint64) error
 	SendFloat64(metric Metric, key string, value float64) error
 }
 
+// metricCommon is an implementation of base routines of a metric, it's inherited by other implementations
 type metricCommon struct {
 	metricRegistryItem
 
@@ -34,15 +34,15 @@ type metricCommon struct {
 	getWasUseless func() bool
 }
 
-func (metric *metricCommon) init(parent Metric, key string, tags AnyTags, getWasUseless func() bool) {
-	metric.parent = parent
-	metric.SetSender(GetDefaultSender())
-	metric.SetGCEnabled(GetDefaultGCEnabled())
+func (m *metricCommon) init(parent Metric, key string, tags AnyTags, getWasUseless func() bool) {
+	m.parent = parent
+	m.SetSender(GetDefaultSender())
+	m.SetGCEnabled(GetDefaultGCEnabled())
 
 	registry.Register(parent, key, tags)
 
-	metric.getWasUseless = getWasUseless
-	metric.metricRegistryItem.init(parent, key)
+	m.getWasUseless = getWasUseless
+	m.metricRegistryItem.init(parent, key)
 
 	if GetDefaultIsRunned() {
 		parent.Run(GetDefaultIterateInterval())
@@ -54,7 +54,8 @@ func (m *metricCommon) getIsSenderSet() bool {
 }
 
 // SetSender sets the sender to be used to periodically send metric values (for example to StatsD)
-// On high loaded systems we recommend to use prometheus and a status page with all exported metrics instead of sending metrics to somewhere.
+// On high loaded systems we recommend to use prometheus and a status page with all exported metrics instead of sending
+// metrics to somewhere.
 func (m *metricCommon) SetSender(sender Sender) {
 	if m == nil {
 		return
@@ -157,7 +158,8 @@ func (m *metricCommon) doIterateSender() {
 }
 
 // Iterate runs routines supposed to be runned once per selected interval.
-// This routines are sending the metric value via sender (see `SetSender`) and GC (to remove the metric if it is not used for a long time).
+// This routines are sending the metric value via sender (see `SetSender`) and GC (to remove the metric if it is not
+// used for a long time).
 func (m *metricCommon) Iterate() {
 	m.doIterateGC()
 	m.doIterateSender()
@@ -204,12 +206,13 @@ func (m *metricCommon) Stop() {
 	m.Unlock()
 }
 
-func (metric *metricCommon) MarshalJSON() ([]byte, error) {
-	nameJSON, _ := json.Marshal(metric.name)
-	descriptionJSON, _ := json.Marshal(metric.description)
-	tagsJSON, _ := json.Marshal(string(metric.tags.String()))
-	typeJSON, _ := json.Marshal(string(metric.GetType()))
-	value := metric.GetFloat64()
+// MarshalJSON returns JSON representation of a metric for external monitoring systems
+func (m *metricCommon) MarshalJSON() ([]byte, error) {
+	nameJSON, _ := json.Marshal(m.name)
+	descriptionJSON, _ := json.Marshal(m.description)
+	tagsJSON, _ := json.Marshal(string(m.tags.String()))
+	typeJSON, _ := json.Marshal(string(m.GetType()))
+	value := m.GetFloat64()
 
 	metricJSON := fmt.Sprintf(`{"name":%s,"tags":%s,"value":%v,"description":%s,"type":%s}`,
 		string(nameJSON),
@@ -221,29 +224,34 @@ func (metric *metricCommon) MarshalJSON() ([]byte, error) {
 	return []byte(metricJSON), nil
 }
 
-func (metric *metricCommon) GetCommons() *metricCommon {
-	return metric
+// GetCommons returns the *metricCommon of a metric
+func (m *metricCommon) GetCommons() *metricCommon {
+	return m
 }
 
 // Placeholders
 // TODO: remove this hacks :(
 
+// Send initiates a sending of the metric value through the sender (see "SetSender")
 func (m *metricCommon) Send(sender Sender) {
 	m.parent.Send(sender)
 }
 
+// GetType returns type of the metric
 func (m *metricCommon) GetType() Type {
 	return m.parent.GetType()
 }
 
+// GetFloat64 returns current value of the metric
 func (m *metricCommon) GetFloat64() float64 {
 	return m.parent.GetFloat64()
 }
 
+// EqualsTo checks if it's the same metric passed as the argument
 func (m *metricCommon) EqualsTo(cmpI iterator) bool {
-	cmp, ok := cmpI.(*metricCommon)
+	cmp, ok := cmpI.(interface{ GetCommons() *metricCommon })
 	if !ok {
 		return false
 	}
-	return m == cmp
+	return m == cmp.GetCommons()
 }

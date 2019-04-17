@@ -1,5 +1,6 @@
 package metrics
 
+// AnyTags is an abstraction of "Tags" and "*FastTags"
 type AnyTags interface {
 	Get(key string) interface{}
 	Set(key string, value interface{}) AnyTags

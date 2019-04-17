@@ -26,12 +26,19 @@ type AggregativeStatistics interface {
 	// A value is nil if the percentile could not be calculated.
 	GetPercentiles(percentile []float64) []*float64
 
+	// Set forces all the values in the statistics to be equal to the passed values
 	Set(staticValue float64)
 
+	// ConsiderValue is analog of "Observe" of https://godoc.org/github.com/prometheus/client_golang/prometheus#Observer
+	// It's used to merge the value to the statistics. For example if there were considered only values 1, 2 and 3 then
+	// the average value will be 2.
 	ConsiderValue(value float64)
 
+	// Release is used for memory reuse (it's called when it's known that the statistics won't be used anymore)
+	// This method is not supposed to be called from external code, it designed for internal uses only.
 	Release()
 
+	//
 	MergeStatistics(AggregativeStatistics)
 }
 

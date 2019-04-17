@@ -56,27 +56,27 @@ func (m *metricCommonInt64) Get() int64 {
 	return atomic.LoadInt64(m.valuePtr)
 }
 
-func (w *metricCommonInt64) GetFloat64() float64 {
-	if w == nil {
+func (m *metricCommonInt64) GetFloat64() float64 {
+	if m == nil {
 		return 0
 	}
-	return float64(w.Get())
+	return float64(m.Get())
 }
 
-func (w *metricCommonInt64) getDifferenceFlush() int64 {
-	if w == nil {
+func (m *metricCommonInt64) getDifferenceFlush() int64 {
+	if m == nil {
 		return 0
 	}
-	newValue := w.Get()
-	previousValue := atomic.SwapInt64(&w.previousValue, newValue)
+	newValue := m.Get()
+	previousValue := atomic.SwapInt64(&m.previousValue, newValue)
 	return newValue - previousValue
 }
 
-func (w *metricCommonInt64) SetValuePointer(newValuePtr *int64) {
-	if w == nil {
+func (m *metricCommonInt64) SetValuePointer(newValuePtr *int64) {
+	if m == nil {
 		return
 	}
-	w.valuePtr = newValuePtr
+	m.valuePtr = newValuePtr
 }
 
 func (m *metricCommonInt64) Send(sender Sender) {
@@ -86,6 +86,6 @@ func (m *metricCommonInt64) Send(sender Sender) {
 	sender.SendUint64(m.parent, string(m.storageKey), uint64(m.Get()))
 }
 
-func (w *metricCommonInt64) wasUseless() bool {
-	return w.getDifferenceFlush() == 0
+func (m *metricCommonInt64) wasUseless() bool {
+	return m.getDifferenceFlush() == 0
 }
