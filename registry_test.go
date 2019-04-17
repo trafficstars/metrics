@@ -205,7 +205,7 @@ func BenchmarkGenKeyTags(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			generateStorageKey(TypeGaugeInt64, `testKey`, testTags)
+			generateStorageKey(TypeGaugeInt64, `testKey`, testTags).Release()
 		}
 	})
 }
@@ -216,7 +216,7 @@ func BenchmarkGenKeyFastTags(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			generateStorageKey(TypeGaugeInt64, `testKey`, testTagsFast)
+			generateStorageKey(TypeGaugeInt64, `testKey`, testTagsFast).Release()
 		}
 	})
 }
@@ -247,7 +247,7 @@ func TestGet(t *testing.T) {
 	m := registry.Get(TypeCount, `TestGet`, tags)
 	if m == nil {
 		considerHiddenTags(tags)
-		fmt.Println("Key:", generateStorageKey(TypeCount, `TestGet`, tags))
+		fmt.Println("Key:", generateStorageKey(TypeCount, `TestGet`, tags).buf.String())
 		for _, key := range registry.storage.Keys() {
 			metric, _ := registry.storage.GetByBytes(key.([]byte))
 			if metric == nil {

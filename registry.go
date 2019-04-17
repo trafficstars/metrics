@@ -1,7 +1,7 @@
 package metrics
 
 import (
-	"github.com/cespare/xxhash"
+	"bytes"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -79,15 +79,13 @@ func GetDefaultIterateInterval() time.Duration {
 }
 
 type keyGeneratorReusables struct {
-	hasher  *xxhash.Digest
+	buf bytes.Buffer
 }
 
 var (
 	keyGeneratorReusablesPool = sync.Pool{
 		New: func() interface{} {
-			return &keyGeneratorReusables{
-				hasher: xxhash.New(),
-			}
+			return &keyGeneratorReusables{}
 		},
 	}
 )
@@ -97,7 +95,7 @@ func newKeyGeneratorReusables() *keyGeneratorReusables {
 }
 
 func (b *keyGeneratorReusables) Release() {
-	b.hasher.Reset()
+	b.buf.Reset()
 	keyGeneratorReusablesPool.Put(b)
 }
 
@@ -108,7 +106,9 @@ func init() {
 
 func (m *Registry) get(metricType Type, key string, tags AnyTags) Metric {
 	considerHiddenTags(tags)
-	rI, _ := m.storage.GetByUint64(generateStorageKey(metricType, key, tags))
+	buf := generateStorageKey(metricType, key, tags)
+	rI, _ := m.storage.GetByBytes(buf.buf.Bytes())
+	buf.Release()
 	if rI == nil {
 		return nil
 	}
@@ -132,12 +132,12 @@ func (m *Registry) Get(metricType Type, key string, tags AnyTags) Metric {
 }
 
 func (m *Registry) set(metric Metric) error {
-	m.storage.Set(metric.(interface{ GetKey() uint64 }).GetKey(), metric)
+	m.storage.Set(metric.(interface{ GetKey() []byte }).GetKey(), metric)
 	return nil
 }
 
 func (m *Registry) Set(metric Metric) error {
-	if v, _ := m.storage.GetByUint64(metric.(interface{ GetKey() uint64 }).GetKey()); v != nil {
+	if v, _ := m.storage.GetByBytes(metric.(interface{ GetKey() []byte }).GetKey()); v != nil {
 		return ErrAlreadyExists
 	}
 
@@ -168,7 +168,7 @@ func (m *Registry) List() (result Metrics) {
 
 func (m *Registry) remove(metric Metric) {
 	metric.Stop()
-	m.storage.Unset(metric.(interface{ GetKey() uint64 }).GetKey())
+	m.storage.Unset(metric.(interface{ GetKey() []byte }).GetKey())
 }
 
 func (m *Registry) GetSender() Sender {
@@ -362,7 +362,16 @@ func (metricsRegistry *Registry) Register(metric Metric, key string, inTags AnyT
 
 	commons := metric.(interface{ GetCommons() *metricCommon }).GetCommons()
 	commons.tags = tags
-	commons.storageKey = generateStorageKey(metric.GetType(), key, tags)
+
+	buf := generateStorageKey(metric.GetType(), key, tags)
+	storageKey := buf.buf.Bytes()
+	if cap(commons.storageKey) < len(storageKey) {
+		commons.storageKey = make([]byte, len(storageKey))
+	} else {
+		commons.storageKey = commons.storageKey[:len(storageKey)]
+	}
+	copy(commons.storageKey, storageKey)
+	buf.Release()
 
 	return registry.Set(metric)
 }
@@ -428,24 +437,21 @@ func considerHiddenTags(tags AnyTags) {
 	}
 }
 
-func generateStorageKey(metricType Type, key string, tags AnyTags) uint64 {
+func generateStorageKey(metricType Type, key string, tags AnyTags) *keyGeneratorReusables {
 	reusables := newKeyGeneratorReusables()
-	reusables.hasher.WriteString(key)
+	reusables.buf.WriteString(key)
 
 	if tags != nil {
-		reusables.hasher.WriteString(`,`)
-		tags.WriteAsString(reusables.hasher)
+		reusables.buf.WriteString(`,`)
+		tags.WriteAsString(&reusables.buf)
 	}
 
 	if metricType > 0 {
-		reusables.hasher.WriteString("@")
-		reusables.hasher.WriteString(metricType.String())
+		reusables.buf.WriteString("@")
+		reusables.buf.WriteString(metricType.String())
 	}
 
-	result := reusables.hasher.Sum64()
-	reusables.Release()
-
-	return result
+	return reusables
 }
 
 func init() {

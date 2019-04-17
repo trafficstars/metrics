@@ -4,7 +4,7 @@ type metricRegistryItem struct {
 	name        string
 	tags        *FastTags
 	description string
-	storageKey  uint64
+	storageKey  []byte
 
 	parent Metric
 }
@@ -17,7 +17,7 @@ func (item *metricRegistryItem) init(parent Metric, name string) {
 func (item *metricRegistryItem) considerHiddenTags() {
 	considerHiddenTags(item.tags)
 }
-func (item *metricRegistryItem) generateStorageKey() uint64 {
+func (item *metricRegistryItem) generateStorageKey() *keyGeneratorReusables {
 	return generateStorageKey(item.parent.GetType(), item.name, item.tags)
 }
 
@@ -33,9 +33,9 @@ func (item *metricRegistryItem) GetName() string {
 func (item *metricRegistryItem) GetTags() Tags {
 	return item.tags.ToMap()
 }
-func (item *metricRegistryItem) GetKey() uint64 {
+func (item *metricRegistryItem) GetKey() []byte {
 	if item == nil {
-		return 0
+		return nil
 	}
 	return item.storageKey
 }
