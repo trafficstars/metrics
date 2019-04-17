@@ -2,22 +2,18 @@ package metrics
 
 import (
 	"runtime/debug"
-	"testing"
 )
 
-func TestTypes(t *testing.T) {
-	var metric Metric
-
-	metric = &MetricCount{}
-	metric = &MetricGaugeInt64{}
-	metric = &MetricGaugeInt64Func{}
-	metric = &MetricGaugeFloat64{}
-	metric = &MetricGaugeFloat64Func{}
-	metric = &MetricTimingBuffered{}
-	metric = &MetricTimingFlow{}
-
-	_ = metric
-}
+var (
+	_ Metric = &MetricCount{}
+	_ Metric = &MetricGaugeInt64{}
+	_ Metric = &MetricGaugeInt64Func{}
+	_ Metric = &MetricGaugeFloat64{}
+	_ Metric = &MetricGaugeFloat64Func{}
+	_ Metric = &MetricTimingBuffered{}
+	_ Metric = &MetricTimingFlow{}
+	_ Metric = &MetricTimingSimple{}
+)
 
 func checkForInfiniteRecursion(m Metric) {
 	// it will panic if there's an infinite recursion
