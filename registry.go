@@ -281,7 +281,7 @@ func (m *Registry) getMonitorState() uint64 {
 		}
 	}
 
-	panic("Shouldn't happend, ever")
+	panic("Shouldn't happened, ever")
 }*/
 
 func (m *Registry) startMonitor() {

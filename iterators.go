@@ -1,6 +1,7 @@
 package metrics
 
-// Metric iterators allows us not to create a seperate goroutine for every metric. It collects all metrics and Iterate()-s them in the specified interval
+// Metric iterators allows us not to create a separate goroutine for every metric. It collects all metrics and
+// Iterate()-s them in the specified interval
 
 import (
 	"sync"
@@ -86,7 +87,7 @@ func (iterationHandler *iterationHandler) Add(iterator iterator) {
 		}
 	}
 
-	// RLock is prefered over Lock and a real adding is a rare event, so…
+	// RLock is preferred over Lock and a real adding is a rare event, so…
 
 	iterationHandler.Lock()
 	defer iterationHandler.Unlock()
