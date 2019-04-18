@@ -259,19 +259,21 @@ but more RAM and CPU is required.
 
 There're two buffer-related specifics:
 * The buffer is limited, so how do we handle the rest events (if there're more events per second
-than the buffer size).
-* How are two buffers get merged to the new one of the same size (see "slicing").
+than the buffer size)?
+* How are two buffers get merged to the new one of the same size (see "slicing")?
 
 Both problems are solved using the same initial idea:
 Let's imagine we received a 1001-th value (via `ConsiderValue`), while our buffer
-is only 1000 elements long. Then we just:
-* Skip it with probability 1/1001.
-* If it's not skipped then it override a random element of the buffer.
+is only 1000 elements long. Then:
+* We just skip it with probability 1/1001.
+* If it's not skipped then override a random element of the buffer by it.
 
-If we receive a second element, then we skip it with probability 2/1002... And so on.
+If we receive a 1002-th event, then we skip it with probability 2/1002... And so on.
 
 It's proven that it's any event value will have an equal probability to get into the buffer.
 And 1000 elements is enough to calculate value of percentile 99 (there will be 10 element with a higher value). 
+
+![flow](https://raw.githubusercontent.com/trafficstars/metrics/master/internal/docs/demonstration/buffered/buffered.png)
 
 Func metrics
 ============
@@ -327,7 +329,7 @@ To deduplicate code it's used an approach similar to C++'s inheritance, but usin
 
 * `registryItem` makes possible to register the metric into the registry
 * `common` handles the common (for all metric types) routines like GC or `Sender`.
-* `commonAggregative` handles the common routines for all aggregative metrics (like statistics slicing)
+* `commonAggregative` handles the common routines for all aggregative metrics (like statistics slicing, see "slicing")
 
 Iterators
 ---------

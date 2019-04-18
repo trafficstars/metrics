@@ -71,13 +71,13 @@ func (s *aggregativeStatisticsBuffered) getPercentile(percentile float64) *float
 	if s.filledSize == 0 {
 		return &[]float64{0}[0]
 	}
-	s.sort()
 	percentileIdx := int(float64(s.filledSize) * percentile)
 	return &[]float64{s.data[percentileIdx]}[0]
 }
 
 func (s *aggregativeStatisticsBuffered) GetPercentile(percentile float64) *float64 {
 	s.locker.Lock()
+	s.sort()
 	r := s.getPercentile(percentile)
 	s.locker.Unlock()
 	return r
@@ -86,6 +86,7 @@ func (s *aggregativeStatisticsBuffered) GetPercentile(percentile float64) *float
 func (s *aggregativeStatisticsBuffered) GetPercentiles(percentiles []float64) []*float64 {
 	r := make([]*float64, 0, len(percentiles))
 	s.locker.Lock()
+	s.sort()
 	for _, percentile := range percentiles {
 		r = append(r, s.getPercentile(percentile))
 	}
@@ -97,6 +98,7 @@ func (s *aggregativeStatisticsBuffered) considerValue(v float64) {
 	s.tickID++
 	if s.filledSize < uint32(bufferSize) {
 		s.data[s.filledSize] = v
+		s.isSorted = false
 		s.filledSize++
 
 		return
@@ -110,7 +112,6 @@ func (s *aggregativeStatisticsBuffered) considerValue(v float64) {
 	}
 
 	s.data[randIdx] = v
-
 	s.isSorted = false
 }
 
