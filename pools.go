@@ -213,6 +213,12 @@ func (v *AggregativeValue) Release() {
 	if v == nil {
 		return
 	}
+
+	v.Count = 0
+	v.Min.Set(0)
+	v.Avg.Set(0)
+	v.Max.Set(0)
+
 	if v.AggregativeStatistics != nil {
 		v.AggregativeStatistics.Release()
 		v.AggregativeStatistics = nil

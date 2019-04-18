@@ -15,9 +15,12 @@ var (
 	slicerInterval = time.Second
 )
 
+// ! Before read this file please read README.md !
+
 type AggregativeStatistics interface {
 	// GetPercentile returns the value for a given percentile (0.0 .. 1.0).
-	// It returns nil if the percentile could not be calculated (it could be in case of using "fast" [instead of "shortBuf"] aggregative metrics)
+	// It returns nil if the percentile could not be calculated (it could be in case of using "flow" [instead of
+	// "buffered"] aggregative metrics)
 	//
 	// If you need to calculate multiple percentiles then use GetPercentiles() to get better performance
 	GetPercentile(percentile float64) *float64
@@ -42,36 +45,47 @@ type AggregativeStatistics interface {
 	MergeStatistics(AggregativeStatistics)
 }
 
-// SetSlicerInterval affects only new metrics (it doesn't affect already created one). You may use function `Reset()` to "update" configuration of all metrics.
+// SetSlicerInterval affects only new metrics (it doesn't affect already created one). You may use function `Reset()`
+// to "update" configuration of all metrics.
 func SetSlicerInterval(newSlicerInterval time.Duration) {
 	slicerInterval = newSlicerInterval
 }
 
-// SetAggregationPeriods affects only new metrics (it doesn't affect already created on). You may use function `Reset()` to "update" configuration of all metrics.
+// SetAggregationPeriods affects only new metrics (it doesn't affect already created on). You may use function
+// `Reset()` to "update" configuration of all metrics.
+//
+// Every higher aggregation period should be a multiple of the lower one.
 func SetAggregationPeriods(newAggregationPeriods []AggregationPeriod) {
 	aggregationPeriods.Lock()
 	aggregationPeriods.s = newAggregationPeriods
 	aggregationPeriods.Unlock()
 }
 
+// AggregationPeriod is used to define aggregation periods (see "Slicing" in "README.md")
 type AggregationPeriod struct {
 	Interval uint64 // in slicerInterval-s
 }
 
+// String returns a string representation of the aggregation period
+//
+// It will return in a short format (like "5s", "1h") if the amount of seconds could be represented as exact value of
+// days, hours or minutes, or if the amount of seconds is less than 60. Otherwise the format will be like `1h5m0s`.
 func (period *AggregationPeriod) String() string {
-	if period.Interval < 60 {
-		return strconv.FormatUint(period.Interval, 10) + `s`
+	interval := time.Duration(period.Interval) * slicerInterval
+	seconds := uint64(interval / time.Second)
+	if seconds < 60 {
+		return strconv.FormatUint(seconds, 10) + `s`
 	}
-	if period.Interval%(3600*24) == 0 {
-		return strconv.FormatUint(period.Interval/(3600*24), 10) + `d`
+	if seconds%(3600*24) == 0 {
+		return strconv.FormatUint(seconds/(3600*24), 10) + `d`
 	}
-	if period.Interval%3600 == 0 {
-		return strconv.FormatUint(period.Interval/3600, 10) + `h`
+	if seconds%3600 == 0 {
+		return strconv.FormatUint(seconds/3600, 10) + `h`
 	}
-	if period.Interval%60 == 0 {
-		return strconv.FormatUint(period.Interval/60, 10) + `m`
+	if seconds%60 == 0 {
+		return strconv.FormatUint(seconds/60, 10) + `m`
 	}
-	return (time.Duration(period.Interval) * slicerInterval).String()
+	return interval.String()
 }
 
 type aggregationPeriodsT struct {
@@ -81,6 +95,7 @@ type aggregationPeriodsT struct {
 }
 
 var (
+	// The default aggregation periods: 1s, 5s, 1m, 5m, 1h, 6h, 1d
 	aggregationPeriods = aggregationPeriodsT{
 		s: []AggregationPeriod{
 			{5},
@@ -93,10 +108,12 @@ var (
 	}
 )
 
+// GetBaseAggregationPeriod returns AggregationPeriod equals to the slicer's interval (see "Slicing" in README.md)
 func GetBaseAggregationPeriod() *AggregationPeriod {
 	return &AggregationPeriod{1}
 }
 
+// GetAggregationPeriods returns aggregations periods (see "Slicing" in README.md)
 func GetAggregationPeriods() (r []AggregationPeriod) {
 	aggregationPeriods.RLock()
 	r = make([]AggregationPeriod, len(aggregationPeriods.s))
@@ -105,6 +122,7 @@ func GetAggregationPeriods() (r []AggregationPeriod) {
 	return
 }
 
+// AggregativeValue is a struct that contains all the values related to an aggregation period.
 type AggregativeValue struct {
 	sync.Mutex
 
@@ -116,16 +134,13 @@ type AggregativeValue struct {
 	AggregativeStatistics
 }
 
+// NewAggregativeValue returns an empty AggregativeValue (as a memory-reuse-away constructor).
 func NewAggregativeValue() *AggregativeValue {
 	r := aggregativeValuePool.Get().(*AggregativeValue)
-	r.Count = 0
-	r.Min.Set(0)
-	r.Avg.Set(0)
-	r.Max.Set(0)
-	r.AggregativeStatistics = nil
 	return r
 }
 
+// set makes the value look like if there were only one event with the value passed as the argument
 func (aggrV *AggregativeValue) set(v float64) {
 	if aggrV == nil {
 		return
@@ -138,6 +153,9 @@ func (aggrV *AggregativeValue) set(v float64) {
 		aggrV.AggregativeStatistics.Set(v)
 	}
 }
+
+// LockDo is just a wrapper around Lock()/Unlock(). It's quite handy to understand who caused a deadlock in
+// stack traces.
 func (aggrV *AggregativeValue) LockDo(fn func(*AggregativeValue)) {
 	if aggrV == nil {
 		return
@@ -147,6 +165,7 @@ func (aggrV *AggregativeValue) LockDo(fn func(*AggregativeValue)) {
 	aggrV.Unlock()
 }
 
+// GetAvg just returns the average value
 func (aggrV *AggregativeValue) GetAvg() float64 {
 	if aggrV == nil {
 		return 0
@@ -154,6 +173,7 @@ func (aggrV *AggregativeValue) GetAvg() float64 {
 	return aggrV.Avg.Get()
 }
 
+// AggregativeValues is a full collection of "AggregativeValue"-s (see "Slicing" in README.md)
 type AggregativeValues struct {
 	Last     *AggregativeValue
 	Current  *AggregativeValue
@@ -162,6 +182,8 @@ type AggregativeValues struct {
 }
 
 // slicer returns an object that will call method DoSlice() of commonAggregative if method Iterate() was called.
+//
+// It's used to deduplicate code and reuse Iterators (see "Iterators" in README.md)
 type commonAggregativeSlicer struct {
 	metric   *commonAggregative
 	interval time.Duration
@@ -176,15 +198,15 @@ func (slicer *commonAggregativeSlicer) GetInterval() time.Duration {
 func (slicer *commonAggregativeSlicer) IsRunning() bool {
 	return slicer.metric.IsRunning()
 }
-
-func (m *commonAggregativeSlicer) EqualsTo(cmpI iterator) bool {
+func (slicer *commonAggregativeSlicer) EqualsTo(cmpI iterator) bool {
 	cmp, ok := cmpI.(*commonAggregativeSlicer)
 	if !ok {
 		return false
 	}
-	return m == cmp
+	return slicer == cmp
 }
 
+// commonAggregative is an implementation of common routines through all aggregative metrics
 type commonAggregative struct {
 	common
 
@@ -198,6 +220,9 @@ type commonAggregative struct {
 }
 
 func (m *commonAggregative) init(parent Metric, key string, tags AnyTags) {
+
+	// See "Slicing" in README.md
+
 	m.slicer = &commonAggregativeSlicer{
 		metric:   m,
 		interval: slicerInterval,
@@ -212,6 +237,13 @@ func (m *commonAggregative) init(parent Metric, key string, tags AnyTags) {
 	for _, period := range m.aggregationPeriods {
 		hist := &history{}
 		if period.Interval%previousPeriod.Interval != 0 {
+			// We support only an aggregation period that divides to the previous aggregation period
+			// For example we support: 1s, 5s, 1m; but we doesn't support: 1s, 5s, 13s.
+			//
+			// It's caused by our algorithm of calculating statistics of higher aggregation periods using
+			// history of statistics of lower aggregation periods. So a higher aggregation period statistics
+			// is calculated from multiple lower aggregation period statistics
+
 			// TODO: print error
 			//panic(fmt.Errorf("period.Interval (%v) %% previousPeriod.Interval (%v) != 0 (%v)", period.Interval, previousPeriod.Interval, period.Interval%previousPeriod.Interval))
 		}
@@ -223,6 +255,8 @@ func (m *commonAggregative) init(parent Metric, key string, tags AnyTags) {
 
 	m.parent = parent
 
+	// Allocate everything:
+
 	m.data.ByPeriod = make([]*AggregativeValue, 0, len(m.aggregationPeriods)+1)
 	v := NewAggregativeValue()
 	v.AggregativeStatistics = m.newAggregativeStatistics()
@@ -233,9 +267,11 @@ func (m *commonAggregative) init(parent Metric, key string, tags AnyTags) {
 		m.data.ByPeriod = append(m.data.ByPeriod, v) // aggregated ones
 	}
 
+	// Init the downlaying structure
 	m.common.init(parent, key, tags, func() bool { return atomic.LoadUint64(&m.data.ByPeriod[0].Count) == 0 })
 }
 
+// GetAggregationPeriods returns aggregation periods of the metric (see "Slicing" in README.md)
 func (m *commonAggregative) GetAggregationPeriods() (r []AggregationPeriod) {
 	m.Lock()
 	r = make([]AggregationPeriod, len(m.aggregationPeriods))
@@ -244,6 +280,7 @@ func (m *commonAggregative) GetAggregationPeriods() (r []AggregationPeriod) {
 	return
 }
 
+// considerValue is an analog of method `Observe` of prometheus' metrics.
 func (m *commonAggregative) considerValue(v float64) {
 	if m == nil {
 		return
@@ -251,6 +288,9 @@ func (m *commonAggregative) considerValue(v float64) {
 
 	appendData := func(data *AggregativeValue) {
 		count := data.Count
+
+		// It's already locked so we use `*Fast` methods
+
 		if count == 0 || v < data.Min.GetFast() {
 			data.Min.SetFast(v)
 		}
@@ -272,6 +312,8 @@ func (m *commonAggregative) considerValue(v float64) {
 
 }
 
+// GetValuePointers returns the pointer to the collection of aggregative values (min, max, ... for every aggregation
+// period)
 func (w *commonAggregative) GetValuePointers() *AggregativeValues {
 	if w == nil {
 		return &AggregativeValues{}
@@ -279,7 +321,16 @@ func (w *commonAggregative) GetValuePointers() *AggregativeValues {
 	return &w.data
 }
 
+// String returns a JSON string representing values (min, max, count, ...) of an aggregative value
 func (v *AggregativeValue) String() string {
+	if v.AggregativeStatistics == nil {
+		return fmt.Sprintf(`{"count":%d,"min":%g,"avg":%g,"max":%g}`,
+			atomic.LoadUint64(&v.Count),
+			v.Min.Get(),
+			v.Avg.Get(),
+			v.Max.Get(),
+		)
+	}
 	percentiles := v.AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
 	return fmt.Sprintf(`{"count":%d,"min":%g,"per1":%g,"per10":%g,"per50":%g,"avg":%g,"per90":%g,"per99":%g,"max":%g}`,
 		atomic.LoadUint64(&v.Count),
@@ -294,6 +345,8 @@ func (v *AggregativeValue) String() string {
 	)
 }
 
+// MarshalJSON is a JSON marshalizer for an aggregative metric to be exported as JSON (for example
+// using https://godoc.org/github.com/trafficstars/statuspage)
 func (metric *commonAggregative) MarshalJSON() ([]byte, error) {
 	var jsonValues []string
 
@@ -332,6 +385,7 @@ func (metric *commonAggregative) MarshalJSON() ([]byte, error) {
 	return []byte(metricJSON), nil
 }
 
+// Send is a function to send the metric values through a Sender (see "Sender" in common.go)
 func (m *commonAggregative) Send(sender Sender) {
 	if sender == nil {
 		return
@@ -340,16 +394,19 @@ func (m *commonAggregative) Send(sender Sender) {
 	considerValue := func(label string, data *AggregativeValue) {
 		baseKey := string(m.storageKey) + `_` + label + `_`
 
-		percentiles := data.AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
 		sender.SendUint64(m.parent, baseKey+`count`, atomic.LoadUint64(&data.Count))
 		sender.SendFloat64(m.parent, baseKey+`min`, data.Min.Get())
+		sender.SendFloat64(m.parent, baseKey+`avg`, data.Avg.Get())
+		sender.SendFloat64(m.parent, baseKey+`max`, data.Max.Get())
+		if data.AggregativeStatistics == nil {
+			return
+		}
+		percentiles := data.AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
 		sender.SendFloat64(m.parent, baseKey+`per1`, *percentiles[0])
 		sender.SendFloat64(m.parent, baseKey+`per10`, *percentiles[1])
 		sender.SendFloat64(m.parent, baseKey+`per50`, *percentiles[2])
-		sender.SendFloat64(m.parent, baseKey+`avg`, data.Avg.Get())
 		sender.SendFloat64(m.parent, baseKey+`per90`, *percentiles[3])
 		sender.SendFloat64(m.parent, baseKey+`per99`, *percentiles[4])
-		sender.SendFloat64(m.parent, baseKey+`max`, data.Max.Get())
 	}
 
 	values := m.data
@@ -361,7 +418,8 @@ func (m *commonAggregative) Send(sender Sender) {
 	considerValue(`total`, values.Total)
 }
 
-// Run starts the metric. We did not check if it is safe to call this method from external code. Not recommended to use, yet.
+// Run starts the metric. We did not check if it is safe to call this method from external code.
+// Not recommended to use it, yet (only for internal uses).
 // Metrics starts automatically after it's creation, so there's no need to call this method, usually.
 func (m *commonAggregative) Run(interval time.Duration) {
 	if m == nil {
@@ -380,6 +438,9 @@ func (m *commonAggregative) Run(interval time.Duration) {
 	return
 }
 
+// Stop is a function to stop the metric. It will be cleaned up by GC.
+// Not recommended to use it, yet (only for internal uses).
+// Metrics stops automatically if an counter of uselessness reaches a threshold (see "Garbage Collection" in README.md).
 func (m *commonAggregative) Stop() {
 	if m == nil {
 		return
@@ -396,17 +457,24 @@ func (m *commonAggregative) Stop() {
 	return
 }
 
+// history is a structure that stores previous aggregative values for an aggregation period
+// it's used to calculate statistics for higher aggregation periods (see "Slicing" in README.md).
+//
+// Actually "history" is just a cyclic buffer of "*AggregativeValue".
 type history struct {
 	currentOffset uint32
 	storage       []*AggregativeValue
 }
 
+// histories is just a collection of "history"-ies for every aggregation period.
 type histories struct {
 	sync.Mutex
 
 	ByPeriod []*history
 }
 
+// rotateHistory just shifts the pointer ("currentOffset") of the next element in the "history" to be filled.
+// A "history" is a cyclic buffer, so it's just a rotation of a cyclic buffer.
 func rotateHistory(h *history) {
 	h.currentOffset++
 	if h.currentOffset >= uint32(len(h.storage)) {
@@ -414,6 +482,7 @@ func rotateHistory(h *history) {
 	}
 }
 
+// calculateValue just merges the statistics of all elements in the history and returns the result.
 func (m *commonAggregative) calculateValue(h *history) (r *AggregativeValue) {
 	depth := len(h.storage)
 	offset := h.currentOffset
@@ -437,13 +506,13 @@ func (m *commonAggregative) calculateValue(h *history) (r *AggregativeValue) {
 
 		r.MergeData(e)
 	}
-
-	r.NormalizeData()
 	return
 }
 
+// MergeData merges/joins the statistics of the argument.
 func (r *AggregativeValue) MergeData(e *AggregativeValue) {
-	if (e.Min < r.Min || (r.Count == 0 && e.Count != 0)) && e.Min != 0 { // TODO: should work correctly without "e.Min != 0" but it doesn't: min value is always zero
+	if (e.Min < r.Min || (r.Count == 0 && e.Count != 0)) && e.Min != 0 {
+		// TODO: should work correctly without "e.Min != 0" but it doesn't: min value is always zero
 		r.Min = e.Min
 	}
 	if e.Max > r.Max || (r.Count == 0 && e.Count != 0) {
@@ -451,22 +520,17 @@ func (r *AggregativeValue) MergeData(e *AggregativeValue) {
 	}
 
 	count := e.Count
+	r.Avg.SetFast(r.Avg.GetFast()*float64(r.Count) + e.Avg.GetFast()*float64(count))
 	r.Count += count
-	r.Avg.SetFast(r.Avg.GetFast() + e.Avg.GetFast()*float64(count))
 	if e.AggregativeStatistics != nil {
 		r.AggregativeStatistics.MergeStatistics(e.AggregativeStatistics)
 	}
 }
 
-func (r *AggregativeValue) NormalizeData() {
-	count := r.Count
-	if count == 0 {
-		return
-	}
-
-	r.Avg.SetFast(r.Avg.GetFast() / float64(count))
-}
-
+// considerFilledValue is a stage of the slicing process (see "Slicing" in README.md).
+// When the slicer swaps the values, the previously "Current" value should be placed to the ByPeriod[0] of both:
+// actual aggregative value (the actual value of the metric) and histories (to calculate values of higher
+// aggregation periods).
 func (m *commonAggregative) considerFilledValue(filledValue *AggregativeValue) {
 	m.histories.Lock()
 	defer m.histories.Unlock()
@@ -480,10 +544,14 @@ func (m *commonAggregative) considerFilledValue(filledValue *AggregativeValue) {
 		h.storage[h.currentOffset] = newValue
 	}
 
+	// Store as the actual value
 	atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.ByPeriod[0])), (unsafe.Pointer)(filledValue))
+
+	// Store to the history
 	rotateHistory(m.histories.ByPeriod[0])
 	updateLastHistoryRecord(m.histories.ByPeriod[0], filledValue)
 
+	// Recalculate the actual values of higher aggregation periods
 	for lIdx, aggregationPeriod := range m.aggregationPeriods {
 		idx := lIdx + 1
 		newValue := m.calculateValue(m.histories.ByPeriod[idx-1])
@@ -499,10 +567,12 @@ func (m *commonAggregative) considerFilledValue(filledValue *AggregativeValue) {
 	}
 }
 
+// newAggregativeStatistics returns an AggregativeStatistics (as a memory-reuse-aware constructor)
 func (m *commonAggregative) newAggregativeStatistics() AggregativeStatistics {
 	return m.parent.(interface{ NewAggregativeStatistics() AggregativeStatistics }).NewAggregativeStatistics()
 }
 
+// DoSlice does the slicing (see "slicing" in README.md)
 func (m *commonAggregative) DoSlice() {
 	nextValue := NewAggregativeValue()
 	nextValue.AggregativeStatistics = m.newAggregativeStatistics()
@@ -510,6 +580,7 @@ func (m *commonAggregative) DoSlice() {
 	m.considerFilledValue(filledValue)
 }
 
+// GetFloat64 is required to be implemented by any metrics, so for aggregative metrics we use the last value.
 func (m *commonAggregative) GetFloat64() float64 {
 	return m.data.Last.GetAvg()
 }

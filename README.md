@@ -5,21 +5,22 @@
 Description
 ===========
 
-This is a implementation of high performance handy metrics library for Golang which could be
-used for prometheus (passive export) and/or StatsD (active export). But the primary method is
-the passive export (a special page where somebody get fetch all the metrics).
+This is a implementation of handy metrics library for high loaded Golang application with export
+to prometheus (passive export) and/or to StatsD (active export). But the primary method is
+the passive export (a [special page](https://github.com/trafficstars/statuspage) where somebody get fetch all the metrics).
 
 How to use
 ==========
 
-Count the number of requests (and request rate by measuring the rate of the count):
+#### Count the number of HTTP requests of every method
+(and request rate by measuring the rate of the count):
 ```go
 metrics.Count(`requests`, metrics.Tags{
     `method`: request.Method,
 }).Increment()
 ```
 
-Measure the latency:
+#### Measure the latency
 ```go
 startTime := time.Now()
 
@@ -28,7 +29,7 @@ startTime := time.Now()
 metrics.TimingBuffered(`latency`, nil).ConsiderValue(time.Since(startTime))
 ```
 
-Export the metrics for prometheus:
+#### Export the metrics for prometheus
 ```go
 import "github.com/trafficstars/statuspage"
 
@@ -43,7 +44,7 @@ func main() {
 }
 ```
 
-Export the metrics to StatsD
+#### Export the metrics to StatsD
 ```go
 
 import (
@@ -326,6 +327,73 @@ BenchmarkRegistryRealReal_FastTags_withHiddenTag-3   	  500000	       934 ns/op	
 BenchmarkRegistryRealReal_FastTags-3                 	  500000	       891 ns/op	       0 B/op	       0 allocs/op
 ```
 
+### Tags
+
+There're two implementations of tags:
+* `Tags` -- just a `map[string]interface{}`. It's just handy (syntax sugar).
+* `FastTags` -- faster tags. They prevents unnecessary memory allocations and just works a little faster (usually).
+
+Examples:
+```go
+// Tags
+metrics.Count(`requests`, metrics.Tags{
+	`method`: request.Method,
+}).Increment()
+```
+(see `BenchmarkRegistryRealReal_lazy`)
+
+```go
+// FastTags
+tags := metrics.NewFastTags().
+	Set(`method`, request.Method)
+metrics.Count(`requests`, tags).Increment()
+tags.Release()
+```
+(see `BenchmarkRegistryRealReal_FastTags`)
+
+It's also possible to use memory reuse for `Tags`, too. It reduces memory allocations,
+but doesn't eliminate them and takes away the syntax sugar:
+```go
+tags := metrics.NewTags()
+tags[`method`] = request.Method
+metrics.Count(`requests`, tags).Increment()
+tags.Release()
+```
+(see `BenchmarkRegistryRealReal_normal`)
+
+So for a very high-loaded application I'd recommend to use `FastTags`, while for the rest
+cases you may just use syntax-sugared `Tags`.
+
+Garbage collection
+==================
+
+In our use cases it appeared we have a lot of short-term metrics (which appears for a few seconds/hours in disappears),
+so if we keep all the metrics in RAM then our application reaches the RAM limit and dies. Therefore
+a "garbage collection" (GC) was implemented. The GC just checks which metrics haven't change
+their values for a long time and removes them.
+
+So every metric has `uselessCounter` which may reach `gcUselessLimit` (currently `5`). If
+the threshold is reached, then the metrics is `Stop`-ped and the registry's GC will
+removed it from the internal storage.
+
+The check if the metric value have changes is done by an Iterator (see "Iterators"). Default
+interval is 10 seconds (so the metrics should be "useless" for at least 50 seconds
+to be removed).
+
+To disable the GC for a metric you can call bethod `SetGCEnabled(false)` 
+
+An example:
+```go
+metric := metrics.GaugeInt64(`concurrent_requests`, nil)
+metric.SetGCEnabled(false)
+
+[...]
+metric.Increase()
+[...]
+metric.Decrease()
+[...]
+```
+
 Developer notes
 ===============
 
@@ -342,3 +410,23 @@ To deduplicate code it's used an approach similar to C++'s inheritance, but usin
 Iterators
 ---------
 
+There're 3 different background routines for every metric:
+* GC (recheck if the metric wasn't changed long time ago and could be removed)
+* Sender (see "Sender")
+* Slicer (see "Slicing")
+
+If I just run a separate goroutine for every routine and metric then the goroutines start
+to consumer a lot of CPU, so to deduplicate goroutines there were implemented "iterators".
+
+An iterator just runs every callback function from a slice with specified time interval.
+
+*Note:* I was too lazy (and there actually was no need) to separate GC and Sender,
+so it's the same routine.
+
+Bugs
+====
+
+GoDoc doesn't show public methods of some embedded private structures, sorry for that :(
+
+[May be related to https://github.com/golang/go/issues/6127](https://github.com/golang/go/issues/6127) or may be
+I did something wrong. 
