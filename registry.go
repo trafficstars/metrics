@@ -149,7 +149,7 @@ func (m *Registry) Set(metric Metric) error {
 
 func (m *Registry) list() (result Metrics) {
 	for _, metricKey := range m.storage.Keys() {
-		metric, _ := m.storage.GetByUint64(metricKey.(uint64))
+		metric, _ := m.storage.GetByBytes(metricKey.([]byte))
 		if metric == nil {
 			continue
 		}

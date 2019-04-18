@@ -453,7 +453,9 @@ func (r *AggregativeValue) MergeData(e *AggregativeValue) {
 	count := e.Count
 	r.Count += count
 	r.Avg.SetFast(r.Avg.GetFast() + e.Avg.GetFast()*float64(count))
-	r.AggregativeStatistics.MergeStatistics(e.AggregativeStatistics)
+	if e.AggregativeStatistics != nil {
+		r.AggregativeStatistics.MergeStatistics(e.AggregativeStatistics)
+	}
 }
 
 func (r *AggregativeValue) NormalizeData() {
