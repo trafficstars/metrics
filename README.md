@@ -9,7 +9,6 @@ This is a implementation of high performance handy metrics library for Golang wh
 used for prometheus (passive export) and/or StatsD (active export). But the primary method is
 the passive export (a special page where somebody get fetch all the metrics).
 
-
 How to use
 ==========
 
@@ -215,16 +214,19 @@ Let's image `ConsiderValue` was called. We do not store previous values so we:
 The function (that implements the above algorithm) is called `guessPercentile` (see `common_aggregative_flow.go`).
 
 There's a constant `iterationsRequiredPerSecond` to tune accuracy of the algorithm. The more this constant value is the
-more accurate is the algorithm, but more values is required (to be passed through `ConsiderValue`) to approach the real
-value. It's set to "20", so this kind of aggregative metrics shouldn't be used if this condition is not satisfied:
-`VPS >> 20` (`VPS` means "values per second", `>>` means "much more"). 
+more accurate is the algorithm, but more values is required (to be passed through `ConsiderValue`) per second to
+approach the real value. It's set to `20`, so this kind of aggregative metrics shouldn't be used if the next condition
+is not satisfied: `VPS >> 20` (`VPS` means "values per second", `>>` means "much more than").
+
+![flow](https://raw.githubusercontent.com/trafficstars/metrics/master/internal/docs/demonstration/flow/flow.png)
 
 #### Buffered
 
 "Buffered" calculates min, max, avg, count and stores values samples to be able to
-calculate any percentile values at any time. The size of the buffer with the sample values
-is regulated via method `SetAggregativeBufferSize` (the default value is "1000"); the more buffer size is the
-more accuracy of percentile values is, but more RAM and CPU is required.  
+calculate any percentile values at any time. This method more precise than the "Flow", but requires much more RAM. The
+size of the buffer with the sample values is regulated via method `SetAggregativeBufferSize`
+(the default value is "1000"); the more buffer size is the more accuracy of percentile values is,
+but more RAM and CPU is required.
 
 Func metrics
 ============
@@ -276,7 +278,7 @@ The structure of a metric object
 --------------------------------
 
 To deduplicate code it's used an approach similar to C++'s inheritance, but using Golang's composition. Here's the scheme:
-![composition/inheritance](https://raw.githubusercontent.com/trafficstars/metrics/master/docs/implementation_composition.png)
+![composition/inheritance](https://raw.githubusercontent.com/trafficstars/metrics/master/internal/docs/scheme/implementation_composition.png)
 
 * `registryItem` makes possible to register the metric into the registry
 * `common` handles the common (for all metric types) routines like GC or `Sender`.
