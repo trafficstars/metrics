@@ -190,17 +190,30 @@ A note: So if you have one aggregative metric it will export every value (max, c
 
 ### Aggregation types
 
+If you have no time to read how every aggregation type works then just read "Use case"
+of every type.
+
 #### Simple
 
 "Simple" just calculates only min, max, avg and count. It's works quite simple and stupid,
 doesn't require extra CPU and/or RAM.
+
+###### Use case
+
+Any case where it's not required to get percentile values.
 
 #### Flow
 
 "Flow" calculates min, max, avg, count, per1, per10, per50, per90 and per99 ("per" is a shorthand for "percentile").
 It doesn't store observed values (only summarized/aggregated ones)
 
-##### How the calculation of percentile values works
+###### Use case
+
+* It's required to get percentile values, but they could be inaccurate.
+* There's a lot of values per second.
+* There will be a lot of such metrics.
+
+###### How the calculation of percentile values works
 
 It just increases/decreases the value (let it call "P") to reach required ratio of [values lower than the value "P"] to [values
 higher than the value "P"].
@@ -220,6 +233,15 @@ is not satisfied: `VPS >> 20` (`VPS` means "values per second", `>>` means "much
 
 ![flow](https://raw.githubusercontent.com/trafficstars/metrics/master/internal/docs/demonstration/flow/flow.png)
 
+The more values are passed the more inert is the value and the more accurate it is.
+So, again, the "Flow" method should be used only on high `VPS`.
+
+*Attention!* There's an unsolved problem of correct merging percentile-related statistics:
+For example, to calculate percentile statistics for interval "5 seconds" it's required to merge statistics
+for 5 different seconds (with their-own percentile values), so the resulting
+percentile value is calculated as just the weighted average of percentile values. It's correct only if the load
+is monotone. Otherwise it will be inaccurate, but *usually* good enough.
+
 #### Buffered
 
 "Buffered" calculates min, max, avg, count and stores values samples to be able to
@@ -227,6 +249,29 @@ calculate any percentile values at any time. This method more precise than the "
 size of the buffer with the sample values is regulated via method `SetAggregativeBufferSize`
 (the default value is "1000"); the more buffer size is the more accuracy of percentile values is,
 but more RAM and CPU is required.
+
+###### Use case
+
+* It's required to get precise percentile values
+* There won't be a lot of such metrics (otherwise it will utilize a lot of RAM).
+
+###### Buffer handling
+
+There're two buffer-related specifics:
+* The buffer is limited, so how do we handle the rest events (if there're more events per second
+than the buffer size).
+* How are two buffers get merged to the new one of the same size (see "slicing").
+
+Both problems are solved using the same initial idea:
+Let's imagine we received a 1001-th value (via `ConsiderValue`), while our buffer
+is only 1000 elements long. Then we just:
+* Skip it with probability 1/1001.
+* If it's not skipped then it override a random element of the buffer.
+
+If we receive a second element, then we skip it with probability 2/1002... And so on.
+
+It's proven that it's any event value will have an equal probability to get into the buffer.
+And 1000 elements is enough to calculate value of percentile 99 (there will be 10 element with a higher value). 
 
 Func metrics
 ============

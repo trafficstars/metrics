@@ -11,7 +11,7 @@ func main() {
 	metric := metrics.GaugeAggregativeFlow(`value`, nil)
 
 	rand.Seed(1)
-	for i:=0; i<400; i++ {
+	for i := 0; i < 400; i++ {
 		v := rand.Float64()
 		metric.ConsiderValue(v)
 		fmt.Printf("%v\t%v\t%v\t%v\n",
