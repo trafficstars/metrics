@@ -43,12 +43,21 @@ func (f *AtomicFloat64) Set(n float64) {
 }
 
 // Add adds the value to the current one (operator "plus")
-func (f *AtomicFloat64) Add(n float64) float64 {
+func (f *AtomicFloat64) Add(a float64) float64 {
 	for {
-		a := atomic.LoadUint64((*uint64)(f))
-		s := math.Float64frombits(a) + n
-		b := math.Float64bits(s)
-		if atomic.CompareAndSwapUint64((*uint64)(f), a, b) {
+		// Get the old value
+		o := atomic.LoadUint64((*uint64)(f))
+
+		// Calculate the sum
+		s := math.Float64frombits(o) + a
+
+		// Get int64 representation of the sum to be able to use atomic operations
+		n := math.Float64bits(s)
+
+		// Swap the old value to the new one
+		// If not successful then somebody changes the value while our calculations above
+		// It means we need to recalculate the new value and try again (that's why it's in the loop)
+		if atomic.CompareAndSwapUint64((*uint64)(f), o, n) {
 			return s
 		}
 	}
@@ -89,9 +98,18 @@ func (f *AtomicFloat64Ptr) Set(n float64) {
 // Add adds the value to the current one (operator "plus")
 func (f *AtomicFloat64Ptr) Add(n float64) float64 {
 	for {
+		// Get the old value
 		a := atomic.LoadUint64((*uint64)((unsafe.Pointer)(f.Pointer)))
+
+		// Calculate the sum
 		s := math.Float64frombits(a) + n
+
+		// Get int64 representation of the sum to be able to use atomic operations
 		b := math.Float64bits(s)
+
+		// Swap the old value to the new one
+		// If not successful then somebody changes the value while our calculations above
+		// It means we need to recalculate the new value and try again (that's why it's in the loop)
 		if atomic.CompareAndSwapUint64((*uint64)((unsafe.Pointer)(f.Pointer)), a, b) {
 			return s
 		}

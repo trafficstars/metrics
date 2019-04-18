@@ -12,29 +12,49 @@ import (
 // On high loaded systems we recommend to use prometheus and a status page with all exported metrics instead of sending
 // metrics to somewhere.
 type Sender interface {
+	// SendInt64 is used to send signed integer values
 	SendInt64(metric Metric, key string, value int64) error
+
+	// SendUint64 is used to send unsigned integer values
 	SendUint64(metric Metric, key string, value uint64) error
+
+	// SendFloat64 is used to send float values
 	SendFloat64(metric Metric, key string, value float64) error
 }
 
-// metricCommon is an implementation of base routines of a metric, it's inherited by other implementations
-type metricCommon struct {
-	metricRegistryItem
+// common is an implementation of base routines of a metric, it's inherited by other implementations
+type common struct {
+	registryItem // any metric could be saved into the registry, so include "registryItem"
 
 	sync.Mutex
-	interval       time.Duration
-	running        uint64
+	running uint64
+
+	// interval in the interval to be used to:
+	//  * recheck if the metric value was changed.
+	//  * send the value through the "sender" (see description of "Sender").
+	//
+	// If the value wasn't changed not then the value of uselessCounter is increased.
+	// If the value of uselessCounter reaches a threshold (see gcUselessLimit) then
+	// the method "Stop" will be called and the metric will be removed from the registry by registry's GC.
+	interval time.Duration
+
 	isGCEnabled    uint64
 	uselessCounter uint64
 
 	sender      Sender
 	isSenderSet uint64
 
-	parent        Metric
+	// parent is a pointer to the object of the final implementation of a metric (for example *GaugeFloat64)
+	parent Metric
+
+	// getWasUseless is a function to check if the metric have changed since the last call.
+	// It depends on specific final implementation so it's passed-throughed from the parent
+	// It's used to determine if the metric could be removed by GC (if haven't changed then it's useless then
+	// it could be removed; see description of "interval").
 	getWasUseless func() bool
 }
 
-func (m *metricCommon) init(parent Metric, key string, tags AnyTags, getWasUseless func() bool) {
+func (m *common) init(parent Metric, key string, tags AnyTags, getWasUseless func() bool) {
 	m.parent = parent
 	m.SetSender(GetDefaultSender())
 	m.SetGCEnabled(GetDefaultGCEnabled())
@@ -42,21 +62,21 @@ func (m *metricCommon) init(parent Metric, key string, tags AnyTags, getWasUsele
 	registry.Register(parent, key, tags)
 
 	m.getWasUseless = getWasUseless
-	m.metricRegistryItem.init(parent, key)
+	m.registryItem.init(parent, key)
 
 	if GetDefaultIsRunned() {
 		parent.Run(GetDefaultIterateInterval())
 	}
 }
 
-func (m *metricCommon) getIsSenderSet() bool {
+func (m *common) getIsSenderSet() bool {
 	return atomic.LoadUint64(&m.isSenderSet) != 0
 }
 
 // SetSender sets the sender to be used to periodically send metric values (for example to StatsD)
 // On high loaded systems we recommend to use prometheus and a status page with all exported metrics instead of sending
 // metrics to somewhere.
-func (m *metricCommon) SetSender(sender Sender) {
+func (m *common) SetSender(sender Sender) {
 	if m == nil {
 		return
 	}
@@ -71,10 +91,12 @@ func (m *metricCommon) SetSender(sender Sender) {
 }
 
 // GetSender returns the sender (see SetSender)
-func (m *metricCommon) GetSender() Sender {
+func (m *common) GetSender() Sender {
 	if m == nil {
 		return nil
 	}
+
+	// We don't like to use mutex (they are slow) so we check this way first
 	if !m.getIsSenderSet() {
 		return nil
 	}
@@ -86,7 +108,7 @@ func (m *metricCommon) GetSender() Sender {
 }
 
 // IsRunning returnes if the metric is run()'ed and not Stop()'ed.
-func (m *metricCommon) IsRunning() bool {
+func (m *common) IsRunning() bool {
 	if m == nil {
 		return false
 	}
@@ -94,12 +116,12 @@ func (m *metricCommon) IsRunning() bool {
 }
 
 // GetInterval return the iteration interval (between sending or GC checks)
-func (m *metricCommon) GetInterval() time.Duration {
+func (m *common) GetInterval() time.Duration {
 	return m.interval
 }
 
 // SetGCEnabled sets if this metric could be stopped and removed from the metrics registry if the value do not change for a long time
-func (m *metricCommon) SetGCEnabled(enabled bool) {
+func (m *common) SetGCEnabled(enabled bool) {
 	if m == nil {
 		return
 	}
@@ -111,14 +133,14 @@ func (m *metricCommon) SetGCEnabled(enabled bool) {
 }
 
 // IsGCEnabled returns if the GC enabled for this metric (see method `SetGCEnabled`)
-func (m *metricCommon) IsGCEnabled() bool {
+func (m *common) IsGCEnabled() bool {
 	if m == nil {
 		return false
 	}
 	return atomic.LoadUint64(&m.isGCEnabled) > 0
 }
 
-func (m *metricCommon) uselessCounterIncrement() {
+func (m *common) uselessCounterIncrement() {
 	if atomic.AddUint64(&m.uselessCounter, 1) <= gcUselessLimit {
 		return
 	}
@@ -128,11 +150,11 @@ func (m *metricCommon) uselessCounterIncrement() {
 	go m.parent.Stop()
 }
 
-func (m *metricCommon) uselessCounterReset() {
+func (m *common) uselessCounterReset() {
 	atomic.StoreUint64(&m.uselessCounter, 0)
 }
 
-func (m *metricCommon) doIterateGC() {
+func (m *common) doIterateGC() {
 	if !m.IsGCEnabled() {
 		return
 	}
@@ -148,7 +170,7 @@ func (m *metricCommon) doIterateGC() {
 	m.uselessCounterReset()
 }
 
-func (m *metricCommon) doIterateSender() {
+func (m *common) doIterateSender() {
 	sender := m.GetSender()
 	if sender == nil {
 		return
@@ -160,12 +182,12 @@ func (m *metricCommon) doIterateSender() {
 // Iterate runs routines supposed to be runned once per selected interval.
 // This routines are sending the metric value via sender (see `SetSender`) and GC (to remove the metric if it is not
 // used for a long time).
-func (m *metricCommon) Iterate() {
+func (m *common) Iterate() {
 	m.doIterateGC()
 	m.doIterateSender()
 }
 
-func (m *metricCommon) run(interval time.Duration) {
+func (m *common) run(interval time.Duration) {
 	if m.IsRunning() {
 		return
 	}
@@ -178,7 +200,7 @@ func (m *metricCommon) run(interval time.Duration) {
 
 // Run starts the metric. We did not check if it is safe to call this method from external code. Not recommended to use, yet.
 // Metrics starts automatically after it's creation, so there's no need to call this method, usually.
-func (m *metricCommon) Run(interval time.Duration) {
+func (m *common) Run(interval time.Duration) {
 	if m == nil {
 		return
 	}
@@ -187,7 +209,7 @@ func (m *metricCommon) Run(interval time.Duration) {
 	m.Unlock()
 }
 
-func (m *metricCommon) stop() {
+func (m *common) stop() {
 	if !m.IsRunning() {
 		return
 	}
@@ -197,7 +219,7 @@ func (m *metricCommon) stop() {
 }
 
 // Stop ends any activity on this metric, except Garbage collector that will remove this metric from the metrics registry.
-func (m *metricCommon) Stop() {
+func (m *common) Stop() {
 	if m == nil {
 		return
 	}
@@ -207,7 +229,7 @@ func (m *metricCommon) Stop() {
 }
 
 // MarshalJSON returns JSON representation of a metric for external monitoring systems
-func (m *metricCommon) MarshalJSON() ([]byte, error) {
+func (m *common) MarshalJSON() ([]byte, error) {
 	nameJSON, _ := json.Marshal(m.name)
 	descriptionJSON, _ := json.Marshal(m.description)
 	tagsJSON, _ := json.Marshal(string(m.tags.String()))
@@ -224,8 +246,8 @@ func (m *metricCommon) MarshalJSON() ([]byte, error) {
 	return []byte(metricJSON), nil
 }
 
-// GetCommons returns the *metricCommon of a metric
-func (m *metricCommon) GetCommons() *metricCommon {
+// GetCommons returns the *common of a metric
+func (m *common) GetCommons() *common {
 	return m
 }
 
@@ -233,23 +255,23 @@ func (m *metricCommon) GetCommons() *metricCommon {
 // TODO: remove this hacks :(
 
 // Send initiates a sending of the metric value through the sender (see "SetSender")
-func (m *metricCommon) Send(sender Sender) {
+func (m *common) Send(sender Sender) {
 	m.parent.Send(sender)
 }
 
 // GetType returns type of the metric
-func (m *metricCommon) GetType() Type {
+func (m *common) GetType() Type {
 	return m.parent.GetType()
 }
 
 // GetFloat64 returns current value of the metric
-func (m *metricCommon) GetFloat64() float64 {
+func (m *common) GetFloat64() float64 {
 	return m.parent.GetFloat64()
 }
 
 // EqualsTo checks if it's the same metric passed as the argument
-func (m *metricCommon) EqualsTo(cmpI iterator) bool {
-	cmp, ok := cmpI.(interface{ GetCommons() *metricCommon })
+func (m *common) EqualsTo(cmpI iterator) bool {
+	cmp, ok := cmpI.(interface{ GetCommons() *common })
 	if !ok {
 		return false
 	}
