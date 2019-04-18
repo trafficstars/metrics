@@ -12,18 +12,18 @@ const (
 	iterationsRequiredPerSecond = 20
 )
 
-type metricCommonAggregativeFlow struct {
-	metricCommonAggregative
+type commonAggregativeFlow struct {
+	commonAggregative
 }
 
-func (m *metricCommonAggregativeFlow) init(parent Metric, key string, tags AnyTags) {
-	m.metricCommonAggregative.init(parent, key, tags)
+func (m *commonAggregativeFlow) init(parent Metric, key string, tags AnyTags) {
+	m.commonAggregative.init(parent, key, tags)
 	m.data.Current.AggregativeStatistics = newAggregativeStatisticsFlow()
 	m.data.Last.AggregativeStatistics = newAggregativeStatisticsFlow()
 	m.data.Total.AggregativeStatistics = newAggregativeStatisticsFlow()
 }
 
-func (m *metricCommonAggregativeFlow) NewAggregativeStatistics() AggregativeStatistics {
+func (m *commonAggregativeFlow) NewAggregativeStatistics() AggregativeStatistics {
 	return newAggregativeStatisticsFlow()
 }
 

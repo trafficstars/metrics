@@ -5,7 +5,7 @@ import (
 )
 
 type MetricTimingSimple struct {
-	metricCommonAggregativeSimple
+	commonAggregativeSimple
 }
 
 func newMetricTimingSimple(key string, tags AnyTags) *MetricTimingSimple {
@@ -15,7 +15,7 @@ func newMetricTimingSimple(key string, tags AnyTags) *MetricTimingSimple {
 }
 
 func (m *MetricTimingSimple) init(key string, tags AnyTags) {
-	m.metricCommonAggregativeSimple.init(m, key, tags)
+	m.commonAggregativeSimple.init(m, key, tags)
 }
 
 func TimingSimple(key string, tags AnyTags) *MetricTimingSimple {

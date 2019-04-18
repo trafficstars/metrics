@@ -1,8 +1,8 @@
 package metrics
 
 type MetricGaugeAggregativeBuffered struct {
-	//metricCommonAggregativeFlow
-	metricCommonAggregativeShortBuf
+	//commonAggregativeFlow
+	commonAggregativeBuffered
 }
 
 func newMetricGaugeAggregativeBuffered(key string, tags AnyTags) *MetricGaugeAggregativeBuffered {
@@ -12,8 +12,8 @@ func newMetricGaugeAggregativeBuffered(key string, tags AnyTags) *MetricGaugeAgg
 }
 
 func (m *MetricGaugeAggregativeBuffered) init(key string, tags AnyTags) {
-	//m.metricCommonAggregativeFlow.init(m, key, tags)
-	m.metricCommonAggregativeShortBuf.init(m, key, tags)
+	//m.commonAggregativeFlow.init(m, key, tags)
+	m.commonAggregativeBuffered.init(m, key, tags)
 }
 
 func GaugeAggregativeBuffered(key string, tags AnyTags) *MetricGaugeAggregativeBuffered {

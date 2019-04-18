@@ -1,7 +1,7 @@
 package metrics
 
 type MetricGaugeFloat64 struct {
-	metricCommonFloat64
+	commonFloat64
 }
 
 func newMetricGaugeFloat64(key string, tags AnyTags) *MetricGaugeFloat64 {
@@ -11,7 +11,7 @@ func newMetricGaugeFloat64(key string, tags AnyTags) *MetricGaugeFloat64 {
 }
 
 func (m *MetricGaugeFloat64) init(key string, tags AnyTags) {
-	m.metricCommonFloat64.init(m, key, tags)
+	m.commonFloat64.init(m, key, tags)
 }
 
 func GaugeFloat64(key string, tags AnyTags) *MetricGaugeFloat64 {

@@ -1,7 +1,7 @@
 package metrics
 
 type MetricGaugeAggregativeSimple struct {
-	metricCommonAggregativeSimple
+	commonAggregativeSimple
 }
 
 func newMetricGaugeAggregativeSimple(key string, tags AnyTags) *MetricGaugeAggregativeSimple {
@@ -11,7 +11,7 @@ func newMetricGaugeAggregativeSimple(key string, tags AnyTags) *MetricGaugeAggre
 }
 
 func (m *MetricGaugeAggregativeSimple) init(key string, tags AnyTags) {
-	m.metricCommonAggregativeSimple.init(m, key, tags)
+	m.commonAggregativeSimple.init(m, key, tags)
 }
 
 func GaugeAggregativeSimple(key string, tags AnyTags) *MetricGaugeAggregativeSimple {

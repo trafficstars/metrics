@@ -29,3 +29,5 @@ BenchmarkNewTimingFlow-3                             	   30000	     14079 ns/op	
 ```
 
 Critical functions are `Get` (see `RegistryReal*`) and `ConsiderValue`.
+
+To deduplicate code I used approach similar to C++'s inheritance. Here's

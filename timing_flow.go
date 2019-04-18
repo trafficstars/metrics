@@ -5,7 +5,7 @@ import (
 )
 
 type MetricTimingFlow struct {
-	metricCommonAggregativeFlow
+	commonAggregativeFlow
 }
 
 func newMetricTimingFlow(key string, tags AnyTags) *MetricTimingFlow {
@@ -15,7 +15,7 @@ func newMetricTimingFlow(key string, tags AnyTags) *MetricTimingFlow {
 }
 
 func (m *MetricTimingFlow) init(key string, tags AnyTags) {
-	m.metricCommonAggregativeFlow.init(m, key, tags)
+	m.commonAggregativeFlow.init(m, key, tags)
 }
 
 func TimingFlow(key string, tags AnyTags) *MetricTimingFlow {

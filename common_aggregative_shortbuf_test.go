@@ -21,20 +21,20 @@ func BenchmarkSortBuiltin(b *testing.B) {
 	})
 }
 
-type metricCommonAggregativeFlowTest struct {
-	metricCommonAggregativeFlow
+type commonAggregativeFlowTest struct {
+	commonAggregativeFlow
 }
 
-func (m *metricCommonAggregativeFlowTest) Release() {
+func (m *commonAggregativeFlowTest) Release() {
 	return
 }
-func (m *metricCommonAggregativeFlowTest) GetType() Type {
+func (m *commonAggregativeFlowTest) GetType() Type {
 	return TypeTimingFlow
 }
 
 func BenchmarkConsiderValueFlow(b *testing.B) {
 	Reset()
-	m := metricCommonAggregativeFlowTest{}
+	m := commonAggregativeFlowTest{}
 	m.init(&m, `test`, nil)
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -46,7 +46,7 @@ func BenchmarkConsiderValueFlow(b *testing.B) {
 
 func BenchmarkDoSliceFlow(b *testing.B) {
 	Reset()
-	m := metricCommonAggregativeFlowTest{}
+	m := commonAggregativeFlowTest{}
 	m.init(&m, `test`, nil)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -55,7 +55,7 @@ func BenchmarkDoSliceFlow(b *testing.B) {
 }
 
 var (
-	testMFlow = &metricCommonAggregativeFlowTest{}
+	testMFlow = &commonAggregativeFlowTest{}
 )
 
 func BenchmarkGetPercentilesFlow(b *testing.B) {
@@ -68,20 +68,20 @@ func BenchmarkGetPercentilesFlow(b *testing.B) {
 	}
 }
 
-type metricCommonAggregativeShortBufTest struct {
-	metricCommonAggregativeShortBuf
+type commonAggregativeBufferedTest struct {
+	commonAggregativeBuffered
 }
 
-func (m *metricCommonAggregativeShortBufTest) Release() {
+func (m *commonAggregativeBufferedTest) Release() {
 	return
 }
-func (m *metricCommonAggregativeShortBufTest) GetType() Type {
+func (m *commonAggregativeBufferedTest) GetType() Type {
 	return TypeTimingBuffered
 }
 
-func BenchmarkConsiderValueShortBuf(b *testing.B) {
+func BenchmarkConsiderValueBuffered(b *testing.B) {
 	Reset()
-	m := metricCommonAggregativeShortBufTest{}
+	m := commonAggregativeBufferedTest{}
 	m.init(&m, `test`, nil)
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -91,9 +91,9 @@ func BenchmarkConsiderValueShortBuf(b *testing.B) {
 	})
 }
 
-func BenchmarkDoSliceShortBuf(b *testing.B) {
+func BenchmarkDoSliceBuffered(b *testing.B) {
 	Reset()
-	m := metricCommonAggregativeShortBufTest{}
+	m := commonAggregativeBufferedTest{}
 	m.init(&m, `test`, nil)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -102,12 +102,12 @@ func BenchmarkDoSliceShortBuf(b *testing.B) {
 }
 
 var (
-	testMShortBuf = &metricCommonAggregativeShortBufTest{}
+	testMBuffered = &commonAggregativeBufferedTest{}
 )
 
-func BenchmarkGetPercentilesShortBuf(b *testing.B) {
+func BenchmarkGetPercentilesBuffered(b *testing.B) {
 	Reset()
-	m := testMShortBuf
+	m := testMBuffered
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.considerValue(float64(i))
@@ -117,7 +117,7 @@ func BenchmarkGetPercentilesShortBuf(b *testing.B) {
 
 func init() {
 	{
-		m := testMShortBuf
+		m := testMBuffered
 		m.init(m, `test`, nil)
 		for i := uint(0); i < bufferSize; i++ {
 			m.considerValue(float64(i))

@@ -117,9 +117,9 @@ var (
 			return buf
 		},
 	}
-	aggregativeStatisticsShortBufPool = &sync.Pool{
+	aggregativeStatisticsBufferedPool = &sync.Pool{
 		New: func() interface{} {
-			buf := &aggregativeStatisticsShortBuf{}
+			buf := &aggregativeStatisticsBuffered{}
 			if uint(cap(buf.data)) < bufferSize {
 				buf.data = make(aggregativeBufferItems, bufferSize)
 			} else if uint(len(buf.data)) != bufferSize {
@@ -164,17 +164,17 @@ func (s *stringSlice) Release() {
 
 // Release should be called when the buffer won't be used anymore (to put into into the pool of free buffers) to
 // reduce pressure on GC.
-func (s *aggregativeStatisticsShortBuf) Release() {
+func (s *aggregativeStatisticsBuffered) Release() {
 	if !memoryReuse {
 		return
 	}
 	s.filledSize = 0
 	s.tickID = 0
-	aggregativeStatisticsShortBufPool.Put(s)
+	aggregativeStatisticsBufferedPool.Put(s)
 }
 
-func newAggregativeStatisticsShortBuf() *aggregativeStatisticsShortBuf {
-	return aggregativeStatisticsShortBufPool.Get().(*aggregativeStatisticsShortBuf)
+func newAggregativeStatisticsBuffered() *aggregativeStatisticsBuffered {
+	return aggregativeStatisticsBufferedPool.Get().(*aggregativeStatisticsBuffered)
 }
 
 // Release should be called when the buffer won't be used anymore (to put into into the pool of free buffers) to

@@ -1,7 +1,7 @@
 package metrics
 
 type MetricCount struct {
-	metricCommonInt64
+	commonInt64
 }
 
 func newMetricCount(key string, tags AnyTags) *MetricCount {
@@ -11,7 +11,7 @@ func newMetricCount(key string, tags AnyTags) *MetricCount {
 }
 
 func (m *MetricCount) init(key string, tags AnyTags) {
-	m.metricCommonInt64.init(m, key, tags)
+	m.commonInt64.init(m, key, tags)
 }
 
 func Count(key string, tags AnyTags) *MetricCount {

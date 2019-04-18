@@ -161,32 +161,32 @@ type AggregativeValues struct {
 	Total    *AggregativeValue
 }
 
-// slicer returns an object that will call method DoSlice() of metricCommonAggregative if method Iterate() was called.
-type metricCommonAggregativeSlicer struct {
-	metric   *metricCommonAggregative
+// slicer returns an object that will call method DoSlice() of commonAggregative if method Iterate() was called.
+type commonAggregativeSlicer struct {
+	metric   *commonAggregative
 	interval time.Duration
 }
 
-func (slicer *metricCommonAggregativeSlicer) Iterate() {
+func (slicer *commonAggregativeSlicer) Iterate() {
 	slicer.metric.DoSlice()
 }
-func (slicer *metricCommonAggregativeSlicer) GetInterval() time.Duration {
+func (slicer *commonAggregativeSlicer) GetInterval() time.Duration {
 	return slicer.interval
 }
-func (slicer *metricCommonAggregativeSlicer) IsRunning() bool {
+func (slicer *commonAggregativeSlicer) IsRunning() bool {
 	return slicer.metric.IsRunning()
 }
 
-func (m *metricCommonAggregativeSlicer) EqualsTo(cmpI iterator) bool {
-	cmp, ok := cmpI.(*metricCommonAggregativeSlicer)
+func (m *commonAggregativeSlicer) EqualsTo(cmpI iterator) bool {
+	cmp, ok := cmpI.(*commonAggregativeSlicer)
 	if !ok {
 		return false
 	}
 	return m == cmp
 }
 
-type metricCommonAggregative struct {
-	metricCommon
+type commonAggregative struct {
+	common
 
 	aggregationPeriods []AggregationPeriod
 	data               AggregativeValues
@@ -197,8 +197,8 @@ type metricCommonAggregative struct {
 	histories histories
 }
 
-func (m *metricCommonAggregative) init(parent Metric, key string, tags AnyTags) {
-	m.slicer = &metricCommonAggregativeSlicer{
+func (m *commonAggregative) init(parent Metric, key string, tags AnyTags) {
+	m.slicer = &commonAggregativeSlicer{
 		metric:   m,
 		interval: slicerInterval,
 	}
@@ -233,10 +233,10 @@ func (m *metricCommonAggregative) init(parent Metric, key string, tags AnyTags) 
 		m.data.ByPeriod = append(m.data.ByPeriod, v) // aggregated ones
 	}
 
-	m.metricCommon.init(parent, key, tags, func() bool { return atomic.LoadUint64(&m.data.ByPeriod[0].Count) == 0 })
+	m.common.init(parent, key, tags, func() bool { return atomic.LoadUint64(&m.data.ByPeriod[0].Count) == 0 })
 }
 
-func (m *metricCommonAggregative) GetAggregationPeriods() (r []AggregationPeriod) {
+func (m *commonAggregative) GetAggregationPeriods() (r []AggregationPeriod) {
 	m.Lock()
 	r = make([]AggregationPeriod, len(m.aggregationPeriods))
 	copy(r, aggregationPeriods.s)
@@ -244,7 +244,7 @@ func (m *metricCommonAggregative) GetAggregationPeriods() (r []AggregationPeriod
 	return
 }
 
-func (m *metricCommonAggregative) considerValue(v float64) {
+func (m *commonAggregative) considerValue(v float64) {
 	if m == nil {
 		return
 	}
@@ -272,7 +272,7 @@ func (m *metricCommonAggregative) considerValue(v float64) {
 
 }
 
-func (w *metricCommonAggregative) GetValuePointers() *AggregativeValues {
+func (w *commonAggregative) GetValuePointers() *AggregativeValues {
 	if w == nil {
 		return &AggregativeValues{}
 	}
@@ -294,7 +294,7 @@ func (v *AggregativeValue) String() string {
 	)
 }
 
-func (metric *metricCommonAggregative) MarshalJSON() ([]byte, error) {
+func (metric *commonAggregative) MarshalJSON() ([]byte, error) {
 	var jsonValues []string
 
 	considerValue := func(label string, data *AggregativeValue) {
@@ -332,7 +332,7 @@ func (metric *metricCommonAggregative) MarshalJSON() ([]byte, error) {
 	return []byte(metricJSON), nil
 }
 
-func (m *metricCommonAggregative) Send(sender Sender) {
+func (m *commonAggregative) Send(sender Sender) {
 	if sender == nil {
 		return
 	}
@@ -363,7 +363,7 @@ func (m *metricCommonAggregative) Send(sender Sender) {
 
 // Run starts the metric. We did not check if it is safe to call this method from external code. Not recommended to use, yet.
 // Metrics starts automatically after it's creation, so there's no need to call this method, usually.
-func (m *metricCommonAggregative) Run(interval time.Duration) {
+func (m *commonAggregative) Run(interval time.Duration) {
 	if m == nil {
 		return
 	}
@@ -380,7 +380,7 @@ func (m *metricCommonAggregative) Run(interval time.Duration) {
 	return
 }
 
-func (m *metricCommonAggregative) Stop() {
+func (m *commonAggregative) Stop() {
 	if m == nil {
 		return
 	}
@@ -414,7 +414,7 @@ func rotateHistory(h *history) {
 	}
 }
 
-func (m *metricCommonAggregative) calculateValue(h *history) (r *AggregativeValue) {
+func (m *commonAggregative) calculateValue(h *history) (r *AggregativeValue) {
 	depth := len(h.storage)
 	offset := h.currentOffset
 	if h.storage[offset] == nil {
@@ -465,7 +465,7 @@ func (r *AggregativeValue) NormalizeData() {
 	r.Avg.SetFast(r.Avg.GetFast() / float64(count))
 }
 
-func (m *metricCommonAggregative) considerFilledValue(filledValue *AggregativeValue) {
+func (m *commonAggregative) considerFilledValue(filledValue *AggregativeValue) {
 	m.histories.Lock()
 	defer m.histories.Unlock()
 
@@ -497,17 +497,17 @@ func (m *metricCommonAggregative) considerFilledValue(filledValue *AggregativeVa
 	}
 }
 
-func (m *metricCommonAggregative) newAggregativeStatistics() AggregativeStatistics {
+func (m *commonAggregative) newAggregativeStatistics() AggregativeStatistics {
 	return m.parent.(interface{ NewAggregativeStatistics() AggregativeStatistics }).NewAggregativeStatistics()
 }
 
-func (m *metricCommonAggregative) DoSlice() {
+func (m *commonAggregative) DoSlice() {
 	nextValue := NewAggregativeValue()
 	nextValue.AggregativeStatistics = m.newAggregativeStatistics()
 	filledValue := (*AggregativeValue)(atomic.SwapPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Current)), (unsafe.Pointer)(nextValue)))
 	m.considerFilledValue(filledValue)
 }
 
-func (m *metricCommonAggregative) GetFloat64() float64 {
+func (m *commonAggregative) GetFloat64() float64 {
 	return m.data.Last.GetAvg()
 }

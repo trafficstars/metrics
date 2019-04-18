@@ -46,28 +46,28 @@ type aggregativeBuffer struct {
 	isSorted   bool
 }
 
-type metricCommonAggregativeShortBuf struct {
-	metricCommonAggregative
+type commonAggregativeBuffered struct {
+	commonAggregative
 }
 
-func (m *metricCommonAggregativeShortBuf) init(parent Metric, key string, tags AnyTags) {
-	m.metricCommonAggregative.init(parent, key, tags)
-	m.data.Current.AggregativeStatistics = newAggregativeStatisticsShortBuf()
-	m.data.Last.AggregativeStatistics = newAggregativeStatisticsShortBuf()
-	m.data.Total.AggregativeStatistics = newAggregativeStatisticsShortBuf()
+func (m *commonAggregativeBuffered) init(parent Metric, key string, tags AnyTags) {
+	m.commonAggregative.init(parent, key, tags)
+	m.data.Current.AggregativeStatistics = newAggregativeStatisticsBuffered()
+	m.data.Last.AggregativeStatistics = newAggregativeStatisticsBuffered()
+	m.data.Total.AggregativeStatistics = newAggregativeStatisticsBuffered()
 }
 
-func (m *metricCommonAggregativeShortBuf) NewAggregativeStatistics() AggregativeStatistics {
-	return newAggregativeStatisticsShortBuf()
+func (m *commonAggregativeBuffered) NewAggregativeStatistics() AggregativeStatistics {
+	return newAggregativeStatisticsBuffered()
 }
 
-type aggregativeStatisticsShortBuf struct {
+type aggregativeStatisticsBuffered struct {
 	aggregativeBuffer
 
 	tickID uint64
 }
 
-func (s *aggregativeStatisticsShortBuf) getPercentile(percentile float64) *float64 {
+func (s *aggregativeStatisticsBuffered) getPercentile(percentile float64) *float64 {
 	if s.filledSize == 0 {
 		return &[]float64{0}[0]
 	}
@@ -76,14 +76,14 @@ func (s *aggregativeStatisticsShortBuf) getPercentile(percentile float64) *float
 	return &[]float64{s.data[percentileIdx]}[0]
 }
 
-func (s *aggregativeStatisticsShortBuf) GetPercentile(percentile float64) *float64 {
+func (s *aggregativeStatisticsBuffered) GetPercentile(percentile float64) *float64 {
 	s.locker.Lock()
 	r := s.getPercentile(percentile)
 	s.locker.Unlock()
 	return r
 }
 
-func (s *aggregativeStatisticsShortBuf) GetPercentiles(percentiles []float64) []*float64 {
+func (s *aggregativeStatisticsBuffered) GetPercentiles(percentiles []float64) []*float64 {
 	r := make([]*float64, 0, len(percentiles))
 	s.locker.Lock()
 	for _, percentile := range percentiles {
@@ -93,7 +93,7 @@ func (s *aggregativeStatisticsShortBuf) GetPercentiles(percentiles []float64) []
 	return r
 }
 
-func (s *aggregativeStatisticsShortBuf) considerValue(v float64) {
+func (s *aggregativeStatisticsBuffered) considerValue(v float64) {
 	s.tickID++
 	if s.filledSize < uint32(bufferSize) {
 		s.data[s.filledSize] = v
@@ -114,31 +114,31 @@ func (s *aggregativeStatisticsShortBuf) considerValue(v float64) {
 	s.isSorted = false
 }
 
-func (s *aggregativeStatisticsShortBuf) ConsiderValue(v float64) {
+func (s *aggregativeStatisticsBuffered) ConsiderValue(v float64) {
 	s.locker.Lock()
 	s.considerValue(v)
 	s.locker.Unlock()
 }
 
-/*func (s *AggregativeStatisticsShortBuf) setItem(idx int, value float64, tickID uint64) {
+/*func (s *AggregativeStatisticsBuffered) setItem(idx int, value float64, tickID uint64) {
 	newItem := newAggregativeBufferItem()
 	newItem.value = value
 	newItem.tickID = tickID
 	(*aggregativeBufferItem)(atomic.SwapPointer((*unsafe.Pointer)((unsafe.Pointer)(&s.data[idx]), newItem)).Release()
 }*/
 
-func (s *aggregativeStatisticsShortBuf) Set(value float64) {
+func (s *aggregativeStatisticsBuffered) Set(value float64) {
 	s.locker.Lock()
 	s.data[0] = value
 	s.filledSize = 1
 	s.locker.Unlock()
 }
 
-func (s *aggregativeStatisticsShortBuf) MergeStatistics(oldSI AggregativeStatistics) {
+func (s *aggregativeStatisticsBuffered) MergeStatistics(oldSI AggregativeStatistics) {
 	if oldSI == nil {
 		return
 	}
-	oldS := oldSI.(*aggregativeStatisticsShortBuf)
+	oldS := oldSI.(*aggregativeStatisticsBuffered)
 
 	if s.filledSize+oldS.filledSize <= uint32(bufferSize) {
 		copy(s.data[s.filledSize:], oldS.data[:oldS.filledSize])

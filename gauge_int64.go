@@ -6,7 +6,7 @@ import (
 )
 
 type MetricGaugeInt64 struct {
-	metricCommonInt64
+	commonInt64
 }
 
 func newMetricGaugeInt64(key string, tags AnyTags) *MetricGaugeInt64 {
@@ -16,7 +16,7 @@ func newMetricGaugeInt64(key string, tags AnyTags) *MetricGaugeInt64 {
 }
 
 func (m *MetricGaugeInt64) init(key string, tags AnyTags) {
-	m.metricCommonInt64.init(m, key, tags)
+	m.commonInt64.init(m, key, tags)
 }
 
 func GaugeInt64(key string, tags AnyTags) *MetricGaugeInt64 {

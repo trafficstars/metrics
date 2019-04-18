@@ -1,13 +1,13 @@
 package metrics
 
-type metricCommonAggregativeSimple struct {
-	metricCommonAggregative
+type commonAggregativeSimple struct {
+	commonAggregative
 }
 
-func (m *metricCommonAggregativeSimple) init(parent Metric, key string, tags AnyTags) {
-	m.metricCommonAggregative.init(parent, key, tags)
+func (m *commonAggregativeSimple) init(parent Metric, key string, tags AnyTags) {
+	m.commonAggregative.init(parent, key, tags)
 }
 
-func (m *metricCommonAggregativeSimple) NewAggregativeStatistics() AggregativeStatistics {
+func (m *commonAggregativeSimple) NewAggregativeStatistics() AggregativeStatistics {
 	return nil
 }

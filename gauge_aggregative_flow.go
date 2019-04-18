@@ -1,7 +1,7 @@
 package metrics
 
 type MetricGaugeAggregativeFlow struct {
-	metricCommonAggregativeFlow
+	commonAggregativeFlow
 }
 
 func newMetricGaugeAggregativeFlow(key string, tags AnyTags) *MetricGaugeAggregativeFlow {
@@ -11,7 +11,7 @@ func newMetricGaugeAggregativeFlow(key string, tags AnyTags) *MetricGaugeAggrega
 }
 
 func (m *MetricGaugeAggregativeFlow) init(key string, tags AnyTags) {
-	m.metricCommonAggregativeFlow.init(m, key, tags)
+	m.commonAggregativeFlow.init(m, key, tags)
 }
 
 func GaugeAggregativeFlow(key string, tags AnyTags) *MetricGaugeAggregativeFlow {

@@ -363,7 +363,7 @@ func (metricsRegistry *Registry) Register(metric Metric, key string, inTags AnyT
 		})
 	}
 
-	commons := metric.(interface{ GetCommons() *metricCommon }).GetCommons()
+	commons := metric.(interface{ GetCommons() *common }).GetCommons()
 	commons.tags = tags
 
 	buf := generateStorageKey(metric.GetType(), key, tags)

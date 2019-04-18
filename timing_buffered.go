@@ -5,7 +5,7 @@ import (
 )
 
 type MetricTimingBuffered struct {
-	metricCommonAggregativeShortBuf
+	commonAggregativeBuffered
 }
 
 func newMetricTimingBuffered(key string, tags AnyTags) *MetricTimingBuffered {
@@ -15,7 +15,7 @@ func newMetricTimingBuffered(key string, tags AnyTags) *MetricTimingBuffered {
 }
 
 func (m *MetricTimingBuffered) init(key string, tags AnyTags) {
-	m.metricCommonAggregativeShortBuf.init(m, key, tags)
+	m.commonAggregativeBuffered.init(m, key, tags)
 }
 
 func TimingBuffered(key string, tags AnyTags) *MetricTimingBuffered {

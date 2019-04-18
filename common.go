@@ -90,7 +90,7 @@ func (m *common) SetSender(sender Sender) {
 	m.Unlock()
 }
 
-// GetSender returns the sender (see SetSender)
+// GetSender returns the sender (see "Sender" and "SetSender")
 func (m *common) GetSender() Sender {
 	if m == nil {
 		return nil
@@ -107,7 +107,7 @@ func (m *common) GetSender() Sender {
 	return sender
 }
 
-// IsRunning returnes if the metric is run()'ed and not Stop()'ed.
+// IsRunning returns if the metric is run()'ed and not Stop()'ed.
 func (m *common) IsRunning() bool {
 	if m == nil {
 		return false
@@ -246,7 +246,8 @@ func (m *common) MarshalJSON() ([]byte, error) {
 	return []byte(metricJSON), nil
 }
 
-// GetCommons returns the *common of a metric
+// GetCommons returns the *common of a metric (it supposed to be used for internal routines only).
+// The "*common" is a structure that is common through all types of metrics (with GC info, registry info and so on).
 func (m *common) GetCommons() *common {
 	return m
 }

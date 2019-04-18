@@ -1,7 +1,7 @@
 package metrics
 
 type MetricGaugeInt64Func struct {
-	metricCommon
+	common
 	fn func() int64
 }
 
@@ -13,7 +13,7 @@ func newMetricGaugeInt64Func(key string, tags AnyTags, fn func() int64) *MetricG
 
 func (m *MetricGaugeInt64Func) init(key string, tags AnyTags, fn func() int64) {
 	m.fn = fn
-	m.metricCommon.init(m, key, tags, func() bool { return m.wasUseless() })
+	m.common.init(m, key, tags, func() bool { return m.wasUseless() })
 }
 
 func GaugeInt64Func(key string, tags AnyTags, fn func() int64) *MetricGaugeInt64Func {

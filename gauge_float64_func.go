@@ -1,7 +1,7 @@
 package metrics
 
 type MetricGaugeFloat64Func struct {
-	metricCommon
+	common
 	fn func() float64
 }
 
@@ -26,7 +26,7 @@ func GaugeFloat64Func(key string, tags AnyTags, fn func() float64) *MetricGaugeF
 
 func (m *MetricGaugeFloat64Func) init(key string, tags AnyTags, fn func() float64) {
 	m.fn = fn
-	m.metricCommon.init(m, key, tags, func() bool { return m.wasUseless() })
+	m.common.init(m, key, tags, func() bool { return m.wasUseless() })
 }
 
 func (m *MetricGaugeFloat64Func) GetType() Type {

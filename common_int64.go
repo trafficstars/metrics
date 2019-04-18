@@ -5,18 +5,18 @@ import (
 	"unsafe"
 )
 
-type metricCommonInt64 struct {
-	metricCommon
+type commonInt64 struct {
+	common
 	valuePtr      *int64
 	previousValue int64
 }
 
-func (m *metricCommonInt64) init(parent Metric, key string, tags AnyTags) {
+func (m *commonInt64) init(parent Metric, key string, tags AnyTags) {
 	m.valuePtr = &[]int64{0}[0]
-	m.metricCommon.init(parent, key, tags, func() bool { return m.wasUseless() })
+	m.common.init(parent, key, tags, func() bool { return m.wasUseless() })
 }
 
-func (m *metricCommonInt64) Increment() int64 {
+func (m *commonInt64) Increment() int64 {
 	if m == nil {
 		return 0
 	}
@@ -26,7 +26,7 @@ func (m *metricCommonInt64) Increment() int64 {
 	return atomic.AddInt64(m.valuePtr, 1)
 }
 
-func (m *metricCommonInt64) Add(delta int64) int64 {
+func (m *commonInt64) Add(delta int64) int64 {
 	if m == nil {
 		return 0
 	}
@@ -36,7 +36,7 @@ func (m *metricCommonInt64) Add(delta int64) int64 {
 	return atomic.AddInt64(m.valuePtr, delta)
 }
 
-func (m *metricCommonInt64) Set(newValue int64) {
+func (m *commonInt64) Set(newValue int64) {
 	if m == nil {
 		return
 	}
@@ -46,7 +46,7 @@ func (m *metricCommonInt64) Set(newValue int64) {
 	atomic.StoreInt64(m.valuePtr, newValue)
 }
 
-func (m *metricCommonInt64) Get() int64 {
+func (m *commonInt64) Get() int64 {
 	if m == nil {
 		return 0
 	}
@@ -56,14 +56,14 @@ func (m *metricCommonInt64) Get() int64 {
 	return atomic.LoadInt64(m.valuePtr)
 }
 
-func (m *metricCommonInt64) GetFloat64() float64 {
+func (m *commonInt64) GetFloat64() float64 {
 	if m == nil {
 		return 0
 	}
 	return float64(m.Get())
 }
 
-func (m *metricCommonInt64) getDifferenceFlush() int64 {
+func (m *commonInt64) getDifferenceFlush() int64 {
 	if m == nil {
 		return 0
 	}
@@ -72,20 +72,20 @@ func (m *metricCommonInt64) getDifferenceFlush() int64 {
 	return newValue - previousValue
 }
 
-func (m *metricCommonInt64) SetValuePointer(newValuePtr *int64) {
+func (m *commonInt64) SetValuePointer(newValuePtr *int64) {
 	if m == nil {
 		return
 	}
 	m.valuePtr = newValuePtr
 }
 
-func (m *metricCommonInt64) Send(sender Sender) {
+func (m *commonInt64) Send(sender Sender) {
 	if sender == nil {
 		return
 	}
 	sender.SendUint64(m.parent, string(m.storageKey), uint64(m.Get()))
 }
 
-func (m *metricCommonInt64) wasUseless() bool {
+func (m *commonInt64) wasUseless() bool {
 	return m.getDifferenceFlush() == 0
 }
