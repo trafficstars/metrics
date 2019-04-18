@@ -11,7 +11,7 @@ func main() {
 	metric := metrics.GaugeAggregativeBuffered(`value`, nil)
 
 	rand.Seed(1)
-	for i := 0; i < 400; i++ {
+	for i := 0; i < 4000; i++ {
 		v := rand.Float64()
 		metric.ConsiderValue(v)
 		percentiles := metric.GetValuePointers().Total.GetPercentiles([]float64{0.1, 0.9, 0.99})

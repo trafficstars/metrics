@@ -232,6 +232,10 @@ approach the real value. It's set to `20`, so this kind of aggregative metrics s
 is not satisfied: `VPS >> 20` (`VPS` means "values per second", `>>` means "much more than").
 
 ![flow](https://raw.githubusercontent.com/trafficstars/metrics/master/internal/docs/demonstration/flow/flow.png)
+(400 events)
+
+![flow](https://raw.githubusercontent.com/trafficstars/metrics/master/internal/docs/demonstration/flow/flow_long.png)
+(4000 events)
 
 The more values are passed the more inert is the value and the more accurate it is.
 So, again, the "Flow" method should be used only on high `VPS`.
@@ -273,7 +277,11 @@ If we receive a 1002-th event, then we skip it with probability 2/1002... And so
 It's proven that it's any event value will have an equal probability to get into the buffer.
 And 1000 elements is enough to calculate value of percentile 99 (there will be 10 element with a higher value). 
 
-![flow](https://raw.githubusercontent.com/trafficstars/metrics/master/internal/docs/demonstration/buffered/buffered.png)
+![buffered](https://raw.githubusercontent.com/trafficstars/metrics/master/internal/docs/demonstration/buffered/buffered.png)
+(on this graph the percentile values are absolutely correct, because there's less than 1000 events)
+
+![buffered long](https://raw.githubusercontent.com/trafficstars/metrics/master/internal/docs/demonstration/buffered/buffered_long.png)
+(4000 events)
 
 Func metrics
 ============
