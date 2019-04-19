@@ -225,7 +225,7 @@ Let's image `ConsiderValue` was called. We do not store previous values so we:
    lower than the current value (and vice versa).
 2. Correct the current value if the prediction in the first stage was wrong.
 
-The function (that implements the above algorithm) is called `guessPercentile` (see `common_aggregative_flow.go`).
+The function (that implements the above algorithm) is called `guessPercentileValue` (see `common_aggregative_flow.go`).
 
 There's a constant `iterationsRequiredPerSecond` to tune accuracy of the algorithm. The more this constant value is the
 more accurate is the algorithm, but more values is required (to be passed through `ConsiderValue`) per second to

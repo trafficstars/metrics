@@ -24,7 +24,7 @@ func checkPercentile(t *testing.T, percentile float64) float64 {
 
 	var result float64
 	for idx, v := range values {
-		result = guessPercentile(result, v, uint64(idx), percentile)
+		result = guessPercentileValue(result, v, uint64(idx), percentile)
 	}
 
 	count := 0
@@ -145,7 +145,7 @@ func checkValues(t *testing.T, values *AggregativeValues) {
 	assert.Equal(t, uint64(500000), uint64(values.Total.Max.Get()))
 }
 
-func TestTimingBufferd(t *testing.T) {
+func TestTimingBuffered(t *testing.T) {
 	metric := TimingBuffered(`test`, nil)
 	fillStats(metric)
 	checkValues(t, metric.GetValuePointers())

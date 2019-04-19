@@ -23,14 +23,21 @@ func (m *commonAggregativeFlow) init(parent Metric, key string, tags AnyTags) {
 	m.data.Total.AggregativeStatistics = newAggregativeStatisticsFlow()
 }
 
+// NewAggregativeStatistics returns a "Flow" (see "Flow" in README.md) implementation of AggregativeStatistics.
 func (m *commonAggregativeFlow) NewAggregativeStatistics() AggregativeStatistics {
 	return newAggregativeStatisticsFlow()
 }
 
-// this is so-so correct only for big amount of events (> iterationsRequiredPerSecond)
-func guessPercentile(curValue, newValue float64, count uint64, perc float64) float64 {
+// guessPercentileValue is a so-so correct way of correcting the percentile value for big amount of events
+// (> iterationsRequiredPerSecond)
+//
+// See "Flow" in README.md
+func guessPercentileValue(curValue, newValue float64, count uint64, perc float64) float64 {
+	// The more events we received the more precise value we should get,
+	// so will should change the value slower if the count is higher
 	inertness := float64(count) / iterationsRequiredPerSecond
 
+	// See "How the calculation of percentile values works" in README.md
 	requireGreater := rand.Float64() > perc
 
 	if newValue > curValue {
@@ -54,33 +61,48 @@ func guessPercentile(curValue, newValue float64, count uint64, perc float64) flo
 type aggregativeStatisticsFlow struct {
 	tickID uint64
 
-	Per1  AtomicFloat64Ptr
-	Per10 AtomicFloat64Ptr
-	Per50 AtomicFloat64Ptr
-	Per90 AtomicFloat64Ptr
-	Per99 AtomicFloat64Ptr
+	locker Spinlock
+
+	Per1  float64
+	Per10 float64
+	Per50 float64
+	Per90 float64
+	Per99 float64
 }
 
+// GetPercentile returns a percentile value for a given percentile (see https://en.wikipedia.org/wiki/Percentile).
+//
+// It returns nil if the percentile is not from the list: 0.01, 0.1, 0.5, 0.9, 0.99.
 func (s *aggregativeStatisticsFlow) GetPercentile(percentile float64) *float64 {
 	if s == nil {
 		return nil
 	}
 	switch percentile {
 	case 0.01:
-		return s.Per1.Pointer
+		return &s.Per1
 	case 0.1:
-		return s.Per10.Pointer
+		return &s.Per10
 	case 0.5:
-		return s.Per50.Pointer
+		return &s.Per50
 	case 0.9:
-		return s.Per90.Pointer
+		return &s.Per90
 	case 0.99:
-		return s.Per99.Pointer
+		return &s.Per99
 	}
 	return nil
 }
 
+// GetPercentiles returns percentile values for a given slice of percentiles.
+//
+// Returned values are ordered accordingly to the input slice. An element of the returned
+// slice is "nil" if the according percentile is not from the list:  0.01, 0.1, 0.5, 0.9, 0.99.
+//
+// There's no performance profit to prefer either of GetPercentile/GetPercentiles for any case (because it's a "Flow"
+// method of percentile calculate), so just use what is more convenient.
 func (s *aggregativeStatisticsFlow) GetPercentiles(percentiles []float64) []*float64 {
+	if len(percentiles) == 0 {
+		return nil
+	}
 	r := make([]*float64, 0, len(percentiles))
 	for _, percentile := range percentiles {
 		r = append(r, s.GetPercentile(percentile))
@@ -88,32 +110,41 @@ func (s *aggregativeStatisticsFlow) GetPercentiles(percentiles []float64) []*flo
 	return r
 }
 
-// ConsiderValue should be called only for locked items
-func (s *aggregativeStatisticsFlow) ConsiderValue(v float64) {
+// Note! considerValue should be called only for locked items
+func (s *aggregativeStatisticsFlow) considerValue(v float64) {
 	s.tickID++
 
 	if s.tickID == 1 {
-		s.Per1.SetFast(v)
-		s.Per10.SetFast(v)
-		s.Per50.SetFast(v)
-		s.Per90.SetFast(v)
-		s.Per99.SetFast(v)
+		s.Per1 = v
+		s.Per10 = v
+		s.Per50 = v
+		s.Per90 = v
+		s.Per99 = v
 		return
 	}
 
-	s.Per1.SetFast(guessPercentile(s.Per1.GetFast(), v, s.tickID, 0.01))
-	s.Per10.SetFast(guessPercentile(s.Per10.GetFast(), v, s.tickID, 0.1))
-	s.Per50.SetFast(guessPercentile(s.Per50.GetFast(), v, s.tickID, 0.5))
-	s.Per90.SetFast(guessPercentile(s.Per90.GetFast(), v, s.tickID, 0.9))
-	s.Per99.SetFast(guessPercentile(s.Per99.GetFast(), v, s.tickID, 0.99))
+	s.Per1 = guessPercentileValue(s.Per1, v, s.tickID, 0.01)
+	s.Per10 = guessPercentileValue(s.Per10, v, s.tickID, 0.1)
+	s.Per50 = guessPercentileValue(s.Per50, v, s.tickID, 0.5)
+	s.Per90 = guessPercentileValue(s.Per90, v, s.tickID, 0.9)
+	s.Per99 = guessPercentileValue(s.Per99, v, s.tickID, 0.99)
+}
+
+// ConsiderValue is an analog of Prometheus' observe (see "Aggregative metrics" in README.md)
+func (s *aggregativeStatisticsFlow) ConsiderValue(v float64) {
+	s.locker.Lock()
+	s.considerValue(v)
+	s.locker.Unlock()
 }
 
 func (s *aggregativeStatisticsFlow) Set(value float64) {
-	s.Per1.Set(value)
-	s.Per10.Set(value)
-	s.Per50.Set(value)
-	s.Per90.Set(value)
-	s.Per99.Set(value)
+	s.locker.Lock()
+	s.Per1 = value
+	s.Per10 = value
+	s.Per50 = value
+	s.Per90 = value
+	s.Per99 = value
+	s.locker.Unlock()
 }
 
 func (s *aggregativeStatisticsFlow) MergeStatistics(oldSI AggregativeStatistics) {
@@ -122,11 +153,11 @@ func (s *aggregativeStatisticsFlow) MergeStatistics(oldSI AggregativeStatistics)
 	}
 	oldS := oldSI.(*aggregativeStatisticsFlow)
 
-	s.Per1.SetFast((s.Per1.GetFast()*float64(s.tickID) + oldS.Per1.GetFast()*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID))
-	s.Per10.SetFast((s.Per10.GetFast()*float64(s.tickID) + oldS.Per10.GetFast()*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID))
-	s.Per50.SetFast((s.Per50.GetFast()*float64(s.tickID) + oldS.Per50.GetFast()*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID))
-	s.Per90.SetFast((s.Per90.GetFast()*float64(s.tickID) + oldS.Per90.GetFast()*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID))
-	s.Per99.SetFast((s.Per99.GetFast()*float64(s.tickID) + oldS.Per99.GetFast()*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID))
+	s.Per1 = (s.Per1*float64(s.tickID) + oldS.Per1*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID)
+	s.Per10 = (s.Per10*float64(s.tickID) + oldS.Per10*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID)
+	s.Per50 = (s.Per50*float64(s.tickID) + oldS.Per50*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID)
+	s.Per90 = (s.Per90*float64(s.tickID) + oldS.Per90*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID)
+	s.Per99 = (s.Per99*float64(s.tickID) + oldS.Per99*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID)
 
 	s.tickID += oldS.tickID
 }

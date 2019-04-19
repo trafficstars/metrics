@@ -97,13 +97,7 @@ var (
 	}
 	aggregativeStatisticsFlowPool = &sync.Pool{
 		New: func() interface{} {
-			s := &aggregativeStatisticsFlow{}
-			s.Per1.Pointer = &[]float64{0}[0]
-			s.Per10.Pointer = &[]float64{0}[0]
-			s.Per50.Pointer = &[]float64{0}[0]
-			s.Per90.Pointer = &[]float64{0}[0]
-			s.Per99.Pointer = &[]float64{0}[0]
-			return s
+			return &aggregativeStatisticsFlow{}
 		},
 	}
 	aggregativeBufferPool = &sync.Pool{

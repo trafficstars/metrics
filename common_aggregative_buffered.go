@@ -12,15 +12,20 @@ const (
 )
 
 var (
+	// See "Buffered" in README.md
 	bufferSize = uint(defaultBufferSize)
 )
 
+// SetAggregativeBufferSize sets the size of the buffer to be used to store value samples
+// The more this values is the more precise is the percentile value, but more RAM & CPU is consumed.
+// (see "Buffered" in README.md)
 func SetAggregativeBufferSize(newBufferSize uint) {
 	bufferSize = newBufferSize
 }
 
 type aggregativeBufferItems []float64
 
+// sortBuiltin uses golang's builtin sort function to sort the slice
 func (s *aggregativeBuffer) sortBuiltin() {
 	sort.Slice(s.data[:s.filledSize], func(i, j int) bool { return s.data[i] < s.data[j] })
 }
@@ -33,12 +38,16 @@ func (s *aggregativeBuffer) sort() {
 	s.isSorted = true
 }
 
+// Sort just sorts the values in the buffer in the ascending order
+//
+// It's used to get a percentile value.
 func (s *aggregativeBuffer) Sort() {
 	s.locker.Lock()
 	s.sort()
 	s.locker.Unlock()
 }
 
+// aggregativeBuffer is a collection of values to be used for percentile calculations (see "Buffered" in README.md)
 type aggregativeBuffer struct {
 	locker     Spinlock
 	filledSize uint32
@@ -57,6 +66,7 @@ func (m *commonAggregativeBuffered) init(parent Metric, key string, tags AnyTags
 	m.data.Total.AggregativeStatistics = newAggregativeStatisticsBuffered()
 }
 
+// NewAggregativeStatistics returns a "Buffered" (see "Buffered" in README.md) implementation of AggregativeStatistics.
 func (m *commonAggregativeBuffered) NewAggregativeStatistics() AggregativeStatistics {
 	return newAggregativeStatisticsBuffered()
 }
@@ -75,6 +85,12 @@ func (s *aggregativeStatisticsBuffered) getPercentile(percentile float64) *float
 	return &[]float64{s.data[percentileIdx]}[0]
 }
 
+// GetPercentile returns a percentile value for a given percentile (see https://en.wikipedia.org/wiki/Percentile).
+//
+// There will never be returned "nil" (because it's a "Buffered" aggregative statistics).
+//
+// If you need multiple percentile values then it would be better to use method `GetPercentiles`, it
+// works faster (for multiple values).
 func (s *aggregativeStatisticsBuffered) GetPercentile(percentile float64) *float64 {
 	s.locker.Lock()
 	s.sort()
@@ -83,6 +99,10 @@ func (s *aggregativeStatisticsBuffered) GetPercentile(percentile float64) *float
 	return r
 }
 
+// GetPercentiles returns percentile values for a given slice of percentiles.
+//
+// Returned values are ordered accordingly to the input slice. An element of the returned
+// slice is never "nil" (because it's a "Buffered" aggregative statistics).
 func (s *aggregativeStatisticsBuffered) GetPercentiles(percentiles []float64) []*float64 {
 	r := make([]*float64, 0, len(percentiles))
 	s.locker.Lock()
@@ -97,7 +117,10 @@ func (s *aggregativeStatisticsBuffered) GetPercentiles(percentiles []float64) []
 func (s *aggregativeStatisticsBuffered) considerValue(v float64) {
 	s.tickID++
 	if s.filledSize < uint32(bufferSize) {
+		s.isSorted = false
 		s.data[s.filledSize] = v
+		// We don't want to use atomic write because it's a much more expensive operation.
+		// So we just set "isSorted = false" twice: before assigning the value and after
 		s.isSorted = false
 		s.filledSize++
 
@@ -111,10 +134,14 @@ func (s *aggregativeStatisticsBuffered) considerValue(v float64) {
 		return
 	}
 
+	s.isSorted = false
 	s.data[randIdx] = v
+	// We don't want to use atomic write because it's a much more expensive operation.
+	// So we just set "isSorted = false" twice: before assigning the value and after
 	s.isSorted = false
 }
 
+// ConsiderValue is an analog of Prometheus' observe (see "Aggregative metrics" in README.md)
 func (s *aggregativeStatisticsBuffered) ConsiderValue(v float64) {
 	s.locker.Lock()
 	s.considerValue(v)
@@ -128,6 +155,8 @@ func (s *aggregativeStatisticsBuffered) ConsiderValue(v float64) {
 	(*aggregativeBufferItem)(atomic.SwapPointer((*unsafe.Pointer)((unsafe.Pointer)(&s.data[idx]), newItem)).Release()
 }*/
 
+// Set resets the statistics and sets only one event with the value passed as the argument,
+// so all aggregative values (avg, min, max, ...) will be equal to the value
 func (s *aggregativeStatisticsBuffered) Set(value float64) {
 	s.locker.Lock()
 	s.data[0] = value
@@ -135,6 +164,7 @@ func (s *aggregativeStatisticsBuffered) Set(value float64) {
 	s.locker.Unlock()
 }
 
+// MergeStatistics adds statistics of the argument to the own one (see "Buffer handling" in README.md)
 func (s *aggregativeStatisticsBuffered) MergeStatistics(oldSI AggregativeStatistics) {
 	if oldSI == nil {
 		return

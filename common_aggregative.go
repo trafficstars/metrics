@@ -519,9 +519,10 @@ func (r *AggregativeValue) MergeData(e *AggregativeValue) {
 		r.Max = e.Max
 	}
 
-	count := e.Count
-	r.Avg.SetFast(r.Avg.GetFast()*float64(r.Count) + e.Avg.GetFast()*float64(count))
-	r.Count += count
+	addCount := e.Count
+	oldCount := r.Count
+	r.Avg.SetFast((r.Avg.GetFast()*float64(oldCount) + e.Avg.GetFast()*float64(addCount)) / float64(oldCount+addCount))
+	r.Count += addCount
 	if e.AggregativeStatistics != nil {
 		r.AggregativeStatistics.MergeStatistics(e.AggregativeStatistics)
 	}
