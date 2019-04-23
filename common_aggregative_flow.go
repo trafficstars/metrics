@@ -137,6 +137,8 @@ func (s *aggregativeStatisticsFlow) ConsiderValue(v float64) {
 	s.locker.Unlock()
 }
 
+// Set resets the statistics and sets only one event with the value passed as the argument,
+// so all aggregative values (avg, min, max, ...) will be equal to the value
 func (s *aggregativeStatisticsFlow) Set(value float64) {
 	s.locker.Lock()
 	s.Per1 = value
@@ -147,6 +149,9 @@ func (s *aggregativeStatisticsFlow) Set(value float64) {
 	s.locker.Unlock()
 }
 
+// MergeStatistics adds statistics of the argument to the own one.
+//
+// See "Attention!" of "How the calculation of percentile values works" in README.md.
 func (s *aggregativeStatisticsFlow) MergeStatistics(oldSI AggregativeStatistics) {
 	if oldSI == nil {
 		return

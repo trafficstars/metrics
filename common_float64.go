@@ -4,7 +4,7 @@ import (
 	"sync/atomic"
 )
 
-// commonFloat64
+// commonFloat64 is an implementation of common routines through all non-aggregative float64 metrics
 type commonFloat64 struct {
 	common
 	modifyCounter uint64
@@ -17,6 +17,7 @@ func (m *commonFloat64) init(parent Metric, key string, tags AnyTags) {
 	m.common.init(parent, key, tags, func() bool { return m.wasUseless() })
 }
 
+// Add adds (+) the value of "delta" to the internal value and returns the result
 func (m *commonFloat64) Add(delta float64) float64 {
 	if m == nil {
 		return 0
@@ -29,6 +30,7 @@ func (m *commonFloat64) Add(delta float64) float64 {
 	return r
 }
 
+// Set overwrites the internal value by the value of the argument "newValue"
 func (m *commonFloat64) Set(newValue float64) {
 	if m == nil {
 		return
@@ -40,6 +42,7 @@ func (m *commonFloat64) Set(newValue float64) {
 	atomic.AddUint64(&m.modifyCounter, 1)
 }
 
+// Get returns the current internal value
 func (m *commonFloat64) Get() float64 {
 	if m == nil {
 		return 0
@@ -50,10 +53,15 @@ func (m *commonFloat64) Get() float64 {
 	return m.valuePtr.Get()
 }
 
+// GetFloat64 returns the current internal value
+//
+// (the same as `Get` for float64 metrics)
 func (m *commonFloat64) GetFloat64() float64 {
 	return m.Get()
 }
 
+// getModifyCounterDiffFlush returns the count of modifications collected since the last call
+// of this method
 func (m *commonFloat64) getModifyCounterDiffFlush() uint64 {
 	if m == nil {
 		return 0
@@ -61,6 +69,7 @@ func (m *commonFloat64) getModifyCounterDiffFlush() uint64 {
 	return atomic.SwapUint64(&m.modifyCounter, 0)
 }
 
+// SetValuePointer sets another pointer to be used to store the internal value of the metric
 func (w *commonFloat64) SetValuePointer(newValuePtr *float64) {
 	if w == nil {
 		return
@@ -68,6 +77,7 @@ func (w *commonFloat64) SetValuePointer(newValuePtr *float64) {
 	w.valuePtr = &AtomicFloat64Ptr{Pointer: newValuePtr}
 }
 
+// Send initiates a sending of the internal value via the sender
 func (m *commonFloat64) Send(sender Sender) {
 	if sender == nil {
 		return
@@ -75,6 +85,7 @@ func (m *commonFloat64) Send(sender Sender) {
 	sender.SendFloat64(m.parent, string(m.storageKey), m.Get())
 }
 
+// wasUseless returns true if the metric's value didn't change since the last call of the method ("wasUseless")
 func (w *commonFloat64) wasUseless() bool {
 	return w.getModifyCounterDiffFlush() == 0
 }
