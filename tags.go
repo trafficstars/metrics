@@ -176,6 +176,10 @@ func (tags Tags) ToFastTags() *FastTags {
 	return &r
 }
 
+func (tags Tags) Len() int {
+	return len(tags)
+}
+
 func (tags Tags) ToMap(fieldMaps ...map[string]interface{}) map[string]interface{} {
 	fields := map[string]interface{}{}
 	if tags != nil {

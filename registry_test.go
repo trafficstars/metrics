@@ -278,6 +278,24 @@ func TestGC(t *testing.T) {
 }
 
 func TestRegistry(t *testing.T) {
+	{
+		metric0 := GaugeInt64(``, nil)
+		metric1 := GaugeInt64(``, nil)
+		assert.Equal(t, metric0, metric1)
+	}
+
+	{
+		metric0 := GaugeInt64(`non_empty_key`, nil)
+		metric1 := GaugeInt64(`non_empty_key`, nil)
+		assert.Equal(t, metric0, metric1)
+	}
+
+	{
+		metric0 := GaugeInt64(`non_empty_key`, Tags{"some_key": "some_value"})
+		metric1 := GaugeInt64(`non_empty_key`, NewFastTags().Set("some_key", "some_value"))
+		assert.Equal(t, metric0, metric1)
+	}
+
 	defaultTags = *Tags{
 		`datacenter`: `EU`,
 		`hostcode`:   `999`,

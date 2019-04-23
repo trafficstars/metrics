@@ -27,4 +27,7 @@ type AnyTags interface {
 
 	// String returns the tags as a string in the StatsD format
 	String() string
+
+	// Len returns the amount/count of tags
+	Len() int
 }

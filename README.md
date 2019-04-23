@@ -318,6 +318,7 @@ Performance
 ===========
 
 ```
+BenchmarkRegistry-8                                     20000000               106 ns/op               0 B/op          0 allocs/op
 BenchmarkRegistryReal-8                                  3000000               360 ns/op               0 B/op          0 allocs/op
 BenchmarkAddToRegistryReal-8                             3000000               394 ns/op               0 B/op          0 allocs/op
 BenchmarkRegistryRealReal_lazy-8                         2000000               658 ns/op             352 B/op          3 allocs/op

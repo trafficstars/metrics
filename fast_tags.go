@@ -253,6 +253,10 @@ func (tags *FastTags) WriteAsString(writeStringer interface{ WriteString(string)
 		tagsCount++
 	}
 
+	if tags == nil {
+		return
+	}
+
 	tags.Sort()
 	for _, tag := range *tags {
 		if defaultTags.IsSet(tag.Key) {

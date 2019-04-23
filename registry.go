@@ -440,14 +440,21 @@ func considerHiddenTags(tags AnyTags) {
 	}
 }
 
+var (
+	nilTags = (*FastTags)(nil)
+)
+
 func generateStorageKey(metricType Type, key string, tags AnyTags) *keyGeneratorReusables {
 	reusables := newKeyGeneratorReusables()
 	reusables.buf.WriteString(key)
 
-	if tags != nil {
+	if len(key) > 0 {
 		reusables.buf.WriteString(`,`)
-		tags.WriteAsString(&reusables.buf)
 	}
+	if tags == nil {
+		tags = nilTags
+	}
+	tags.WriteAsString(&reusables.buf)
 
 	if metricType > 0 {
 		reusables.buf.WriteString("@")
