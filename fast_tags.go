@@ -99,6 +99,9 @@ func (tags *FastTags) Release() {
 	if !memoryReuse {
 		return
 	}
+	if tags == nil {
+		return
+	}
 	for _, tag := range *tags {
 		tag.Release()
 	}
@@ -197,8 +200,11 @@ func (tags *FastTags) Set(key string, value interface{}) AnyTags {
 
 // Each is a function to call function "fn" for each tag. A key and a value of a tag will be passed as "k" and "v"
 // arguments, accordingly.
-func (tags FastTags) Each(fn func(k string, v interface{}) bool) {
-	for _, tag := range tags {
+func (tags *FastTags) Each(fn func(k string, v interface{}) bool) {
+	if tags == nil {
+		return
+	}
+	for _, tag := range *tags {
 		if !fn(tag.Key, tag.GetValue()) {
 			break
 		}
@@ -215,10 +221,13 @@ func (tags *FastTags) ToFastTags() *FastTags {
 // ToMap returns tags as an map of tag keys to tag values ("map[string]interface{}").
 //
 // Any maps passed as an argument will overwrite values of the resulting map.
-func (tags FastTags) ToMap(fieldMaps ...map[string]interface{}) map[string]interface{} {
+func (tags *FastTags) ToMap(fieldMaps ...map[string]interface{}) map[string]interface{} {
+	if tags == nil {
+		return nil
+	}
 	fields := map[string]interface{}{}
-	if tags != nil {
-		for _, tag := range tags {
+	if *tags != nil {
+		for _, tag := range *tags {
 			fields[tag.Key] = tag.GetValue()
 		}
 	}

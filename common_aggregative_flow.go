@@ -18,9 +18,6 @@ type commonAggregativeFlow struct {
 
 func (m *commonAggregativeFlow) init(parent Metric, key string, tags AnyTags) {
 	m.commonAggregative.init(parent, key, tags)
-	m.data.Current.AggregativeStatistics = newAggregativeStatisticsFlow()
-	m.data.Last.AggregativeStatistics = newAggregativeStatisticsFlow()
-	m.data.Total.AggregativeStatistics = newAggregativeStatisticsFlow()
 }
 
 // NewAggregativeStatistics returns a "Flow" (see "Flow" in README.md) implementation of AggregativeStatistics.
@@ -157,6 +154,10 @@ func (s *aggregativeStatisticsFlow) MergeStatistics(oldSI AggregativeStatistics)
 		return
 	}
 	oldS := oldSI.(*aggregativeStatisticsFlow)
+
+	if s.tickID+oldS.tickID == 0 {
+		return
+	}
 
 	s.Per1 = (s.Per1*float64(s.tickID) + oldS.Per1*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID)
 	s.Per10 = (s.Per10*float64(s.tickID) + oldS.Per10*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID)

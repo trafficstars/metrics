@@ -209,9 +209,9 @@ func (v *AggregativeValue) Release() {
 	}
 
 	v.Count = 0
-	v.Min.Set(0)
-	v.Avg.Set(0)
-	v.Max.Set(0)
+	v.Min.SetFast(0)
+	v.Avg.SetFast(0)
+	v.Max.SetFast(0)
 
 	if v.AggregativeStatistics != nil {
 		v.AggregativeStatistics.Release()

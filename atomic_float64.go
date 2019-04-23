@@ -28,6 +28,42 @@ type AtomicFloat64Interface interface {
 	AddFast(float64) float64
 }
 
+// NonAtomicFloat64 just an implementation of AtomicFloat64Interface without any atomicity
+//
+// Supposed to be used for debugging, only
+type NonAtomicFloat64 float64
+
+// Get returns the current value
+func (f *NonAtomicFloat64) Get() float64 {
+	return (float64)(*f)
+}
+
+// Set sets a new value
+func (f *NonAtomicFloat64) Set(n float64) {
+	*f = NonAtomicFloat64(n)
+}
+
+// Add adds the value to the current one (operator "plus")
+func (f *NonAtomicFloat64) Add(a float64) float64 {
+	*f += NonAtomicFloat64(a)
+	return float64(*f)
+}
+
+// GetFast is the same as Get
+func (f *NonAtomicFloat64) GetFast() float64 {
+	return f.Get()
+}
+
+// SetFast is the same as Set
+func (f *NonAtomicFloat64) SetFast(n float64) {
+	f.Set(n)
+}
+
+// AddFast is the same as Add
+func (f *NonAtomicFloat64) AddFast(n float64) float64 {
+	return f.Add(n)
+}
+
 // AtomicFloat64 is an implementation of atomic float64 using uint64 atomic instructions
 // and `math.Float64frombits()`/`math.Float64bits()`
 type AtomicFloat64 uint64

@@ -117,6 +117,7 @@ func (registry *Registry) get(metricType Type, key string, tags AnyTags) Metric 
 	}
 	r := rI.(Metric)
 	if !r.IsRunning() {
+		return nil
 		/* Works unstable, commented for a while:
 		if !r.IsRunning() {
 			r.Run(metricsRegistry.GetDefaultIterateInterval())
@@ -352,15 +353,15 @@ func GC() {
 }
 
 func (registry *Registry) Register(metric Metric, key string, inTags AnyTags) error {
-	tags := NewFastTags()
-	for _, tag := range defaultTags {
-		tags.Set(tag.Key, tag.StringValue)
-	}
+	var tags *FastTags
+
 	if inTags != nil {
+		tags = NewFastTags()
 		inTags.Each(func(k string, v interface{}) bool {
 			tags.Set(k, v)
 			return true
 		})
+		tags.Sort()
 	}
 
 	commons := metric.(interface{ GetCommons() *common }).GetCommons()
@@ -482,6 +483,10 @@ func SetMetricsIterateIntervaler(newMetricsIterateIntervaler IterateIntervaler) 
 
 func SetDefaultTags(newDefaultAnyTags AnyTags) {
 	defaultTags = *newDefaultAnyTags.ToFastTags()
+}
+
+func GetDefaultTags() *FastTags {
+	return &defaultTags
 }
 
 func (registry *Registry) getHiddenTags() hiddenTagsInternal {

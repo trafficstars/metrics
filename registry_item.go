@@ -30,12 +30,11 @@ func (item *registryItem) SetGCEnabled(enable bool) {
 func (item *registryItem) GetName() string {
 	return item.name
 }
-func (item *registryItem) GetTags() Tags {
-	tags := item.tags.ToMap()
-	defaultTags.Each(func(k string, v interface{}) bool {
-		tags[k] = v
-		return true
-	})
+func (item *registryItem) GetTags() *FastTags {
+	tags := item.tags.ToFastTags()
+	if tags == nil && defaultTags.Len() != 0 {
+		return &defaultTags
+	}
 	return tags
 }
 func (item *registryItem) GetKey() []byte {

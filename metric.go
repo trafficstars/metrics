@@ -12,7 +12,7 @@ type Metric interface {
 	Send(Sender)
 	GetType() Type
 	GetName() string
-	GetTags() Tags
+	GetTags() *FastTags
 	GetFloat64() float64
 	IsRunning() bool
 	Release()

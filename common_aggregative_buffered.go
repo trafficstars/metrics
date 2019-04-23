@@ -61,9 +61,6 @@ type commonAggregativeBuffered struct {
 
 func (m *commonAggregativeBuffered) init(parent Metric, key string, tags AnyTags) {
 	m.commonAggregative.init(parent, key, tags)
-	m.data.Current.AggregativeStatistics = newAggregativeStatisticsBuffered()
-	m.data.Last.AggregativeStatistics = newAggregativeStatisticsBuffered()
-	m.data.Total.AggregativeStatistics = newAggregativeStatisticsBuffered()
 }
 
 // NewAggregativeStatistics returns a "Buffered" (see "Buffered" in README.md) implementation of AggregativeStatistics.

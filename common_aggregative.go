@@ -134,8 +134,8 @@ type AggregativeValue struct {
 	AggregativeStatistics
 }
 
-// NewAggregativeValue returns an empty AggregativeValue (as a memory-reuse-away constructor).
-func NewAggregativeValue() *AggregativeValue {
+// newAggregativeValue returns an empty AggregativeValue (as a memory-reuse-away constructor).
+func newAggregativeValue() *AggregativeValue {
 	r := aggregativeValuePool.Get().(*AggregativeValue)
 	return r
 }
@@ -219,7 +219,19 @@ type commonAggregative struct {
 	histories histories
 }
 
+// newAggregativeStatistics returns an AggregativeStatistics (as a memory-reuse-aware constructor)
+func (m *commonAggregative) newAggregativeStatistics() AggregativeStatistics {
+	return m.parent.(interface{ NewAggregativeStatistics() AggregativeStatistics }).NewAggregativeStatistics()
+}
+
+func (m *commonAggregative) NewAggregativeValue() *AggregativeValue {
+	v := newAggregativeValue()
+	v.AggregativeStatistics = m.newAggregativeStatistics()
+	return v
+}
+
 func (m *commonAggregative) init(parent Metric, key string, tags AnyTags) {
+	m.parent = parent
 
 	// See "Slicing" in README.md
 
@@ -228,9 +240,9 @@ func (m *commonAggregative) init(parent Metric, key string, tags AnyTags) {
 		interval: slicerInterval,
 	}
 	m.aggregationPeriods = GetAggregationPeriods()
-	m.data.Last = NewAggregativeValue()
-	m.data.Current = NewAggregativeValue()
-	m.data.Total = NewAggregativeValue()
+	m.data.Last = m.NewAggregativeValue()
+	m.data.Current = m.NewAggregativeValue()
+	m.data.Total = m.NewAggregativeValue()
 
 	m.histories.ByPeriod = make([]*history, 0, len(m.aggregationPeriods))
 	previousPeriod := AggregationPeriod{1}
@@ -253,17 +265,13 @@ func (m *commonAggregative) init(parent Metric, key string, tags AnyTags) {
 		previousPeriod = period
 	}
 
-	m.parent = parent
-
 	// Allocate everything:
 
 	m.data.ByPeriod = make([]*AggregativeValue, 0, len(m.aggregationPeriods)+1)
-	v := NewAggregativeValue()
-	v.AggregativeStatistics = m.newAggregativeStatistics()
+	v := m.NewAggregativeValue()
 	m.data.ByPeriod = append(m.data.ByPeriod, v) // no aggregation, yet
 	for range m.aggregationPeriods {
-		v := NewAggregativeValue()
-		v.AggregativeStatistics = m.newAggregativeStatistics()
+		v := m.NewAggregativeValue()
 		m.data.ByPeriod = append(m.data.ByPeriod, v) // aggregated ones
 	}
 
@@ -490,8 +498,7 @@ func (m *commonAggregative) calculateValue(h *history) (r *AggregativeValue) {
 		return
 	}
 
-	r = NewAggregativeValue()
-	r.AggregativeStatistics = m.newAggregativeStatistics()
+	r = m.NewAggregativeValue()
 
 	for depth > 0 {
 		e := h.storage[offset]
@@ -520,8 +527,14 @@ func (r *AggregativeValue) MergeData(e *AggregativeValue) {
 	}
 
 	addCount := e.Count
+	addValue := e.Avg.GetFast()
 	oldCount := r.Count
-	r.Avg.SetFast((r.Avg.GetFast()*float64(oldCount) + e.Avg.GetFast()*float64(addCount)) / float64(oldCount+addCount))
+	oldValue := r.Avg.GetFast()
+	if oldCount+addCount == 0 {
+		r.Avg.SetFast(0)
+	} else {
+		r.Avg.SetFast((oldValue*float64(oldCount) + addValue*float64(addCount)) / float64(oldCount+addCount))
+	}
 	r.Count += addCount
 	if e.AggregativeStatistics != nil {
 		r.AggregativeStatistics.MergeStatistics(e.AggregativeStatistics)
@@ -568,15 +581,9 @@ func (m *commonAggregative) considerFilledValue(filledValue *AggregativeValue) {
 	}
 }
 
-// newAggregativeStatistics returns an AggregativeStatistics (as a memory-reuse-aware constructor)
-func (m *commonAggregative) newAggregativeStatistics() AggregativeStatistics {
-	return m.parent.(interface{ NewAggregativeStatistics() AggregativeStatistics }).NewAggregativeStatistics()
-}
-
 // DoSlice does the slicing (see "slicing" in README.md)
 func (m *commonAggregative) DoSlice() {
-	nextValue := NewAggregativeValue()
-	nextValue.AggregativeStatistics = m.newAggregativeStatistics()
+	nextValue := m.NewAggregativeValue()
 	filledValue := (*AggregativeValue)(atomic.SwapPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Current)), (unsafe.Pointer)(nextValue)))
 	m.considerFilledValue(filledValue)
 }
