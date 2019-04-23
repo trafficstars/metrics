@@ -109,12 +109,8 @@ func BenchmarkRegistryRealReal_lazy(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			testTags := Tags{
-				`tag0`:           0,
-				`tag1`:           1,
+				`string`:         `value`,
 				`success`:        true,
-				`hello`:          `world`,
-				`service`:        `rotator`,
-				`server`:         `idk`,
 				`worker_id`:      -1,
 				`defaultTagBool`: true,
 			}
@@ -131,13 +127,8 @@ func BenchmarkRegistryRealReal_normal(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			testTags := NewTags()
-			testTags[`tags0`] = 0
-			testTags[`tag0`] = 0
-			testTags[`tag1`] = 1
+			testTags[`string`] = `value`
 			testTags[`success`] = true
-			testTags[`hello`] = `world`
-			testTags[`service`] = `rotator`
-			testTags[`server`] = `idk`
 			testTags[`worker_id`] = -1
 			testTags[`defaultTagBool`] = true
 			GaugeInt64(`test_key`, testTags)
@@ -154,13 +145,8 @@ func BenchmarkRegistryRealReal_FastTags_withHiddenTag(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			testTags := NewFastTags().
-				Set(`tags0`, 0).
-				Set(`tag0`, 0).
-				Set(`tag1`, 1).
+				Set(`string`, `value`).
 				Set(`success`, true).
-				Set(`hello`, `world`).
-				Set(`service`, `rotator`).
-				Set(`server`, `idk`).
 				Set(`worker_id`, -1).
 				Set(`defaultTagBool`, true)
 			GaugeInt64(`test_key`, testTags)
@@ -176,13 +162,8 @@ func BenchmarkRegistryRealReal_FastTags(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			testTags := NewFastTags().
-				Set(`tags0`, 0).
-				Set(`tag0`, 0).
-				Set(`tag1`, 1).
+				Set(`string`, `value`).
 				Set(`success`, true).
-				Set(`hello`, `world`).
-				Set(`service`, `rotator`).
-				Set(`server`, `idk`).
 				Set(`worker_id`, -1).
 				Set(`defaultTagBool`, true)
 			GaugeInt64(`test_key`, testTags)

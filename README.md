@@ -318,13 +318,13 @@ Performance
 ===========
 
 ```
-BenchmarkRegistry-8                                     20000000                77.5 ns/op             0 B/op          0 allocs/op
-BenchmarkRegistryReal-8                                  5000000               288 ns/op               0 B/op          0 allocs/op
-BenchmarkAddToRegistryReal-8                             5000000               357 ns/op               0 B/op          0 allocs/op
-BenchmarkRegistryRealReal_lazy-8                         2000000               606 ns/op             352 B/op          3 allocs/op
-BenchmarkRegistryRealReal_normal-8                       2000000               629 ns/op              16 B/op          1 allocs/op
-BenchmarkRegistryRealReal_FastTags_withHiddenTag-8       3000000               571 ns/op               0 B/op          0 allocs/op
-BenchmarkRegistryRealReal_FastTags-8                     3000000               507 ns/op               0 B/op          0 allocs/op
+BenchmarkRegistry-8                                     20000000                75.1 ns/op             0 B/op          0 allocs/op
+BenchmarkRegistryReal-8                                  5000000               299 ns/op               0 B/op          0 allocs/op
+BenchmarkAddToRegistryReal-8                             5000000               351 ns/op               0 B/op          0 allocs/op
+BenchmarkRegistryRealReal_lazy-8                         5000000               390 ns/op             352 B/op          3 allocs/op
+BenchmarkRegistryRealReal_normal-8                       5000000               317 ns/op              16 B/op          1 allocs/op
+BenchmarkRegistryRealReal_FastTags_withHiddenTag-8       5000000               254 ns/op               0 B/op          0 allocs/op
+BenchmarkRegistryRealReal_FastTags-8                    10000000               233 ns/op               0 B/op          0 allocs/op
 ```
 
 ### Tags
