@@ -241,23 +241,12 @@ func (tags *FastTags) String() string {
 
 // WriteAsString writes tags in StatsD format through the WriteStringer (passed as the argument)
 func (tags *FastTags) WriteAsString(writeStringer interface{ WriteString(string) (int, error) }) {
-	tagsCount := 0
-
-	for _, tag := range defaultTags {
-		if tagsCount != 0 {
-			writeStringer.WriteString(`,`)
-		}
-		writeStringer.WriteString(tag.Key)
-		writeStringer.WriteString(`=`)
-		writeStringer.WriteString(tag.StringValue)
-		tagsCount++
-	}
-
 	if tags == nil {
 		return
 	}
 
 	tags.Sort()
+	tagsCount := 0
 	for _, tag := range *tags {
 		if defaultTags.IsSet(tag.Key) {
 			continue

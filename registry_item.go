@@ -31,7 +31,12 @@ func (item *registryItem) GetName() string {
 	return item.name
 }
 func (item *registryItem) GetTags() Tags {
-	return item.tags.ToMap()
+	tags := item.tags.ToMap()
+	defaultTags.Each(func(k string, v interface{}) bool {
+		tags[k] = v
+		return true
+	})
+	return tags
 }
 func (item *registryItem) GetKey() []byte {
 	if item == nil {

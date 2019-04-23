@@ -204,18 +204,6 @@ func (tags Tags) String() string {
 }
 
 func (tags Tags) WriteAsString(writeStringer interface{ WriteString(string) (int, error) }) {
-	tagsCount := 0
-
-	for _, tag := range defaultTags {
-		if tagsCount != 0 {
-			writeStringer.WriteString(`,`)
-		}
-		writeStringer.WriteString(tag.Key)
-		writeStringer.WriteString(`=`)
-		writeStringer.WriteString(tag.StringValue)
-		tagsCount++
-	}
-
 	keys := newStringSlice()
 
 	for k := range tags {
@@ -233,6 +221,7 @@ func (tags Tags) WriteAsString(writeStringer interface{ WriteString(string) (int
 		}
 	}
 
+	tagsCount := 0
 	for _, k := range *keys {
 		if tagsCount != 0 {
 			writeStringer.WriteString(`,`)

@@ -318,13 +318,13 @@ Performance
 ===========
 
 ```
-BenchmarkRegistry-8                                     20000000               106 ns/op               0 B/op          0 allocs/op
-BenchmarkRegistryReal-8                                  3000000               360 ns/op               0 B/op          0 allocs/op
-BenchmarkAddToRegistryReal-8                             3000000               394 ns/op               0 B/op          0 allocs/op
-BenchmarkRegistryRealReal_lazy-8                         2000000               658 ns/op             352 B/op          3 allocs/op
-BenchmarkRegistryRealReal_normal-8                       2000000               716 ns/op              16 B/op          1 allocs/op
-BenchmarkRegistryRealReal_FastTags_withHiddenTag-8       2000000               640 ns/op               0 B/op          0 allocs/op
-BenchmarkRegistryRealReal_FastTags-8                     3000000               550 ns/op               0 B/op          0 allocs/op
+BenchmarkRegistry-8                                     20000000                77.5 ns/op             0 B/op          0 allocs/op
+BenchmarkRegistryReal-8                                  5000000               288 ns/op               0 B/op          0 allocs/op
+BenchmarkAddToRegistryReal-8                             5000000               357 ns/op               0 B/op          0 allocs/op
+BenchmarkRegistryRealReal_lazy-8                         2000000               606 ns/op             352 B/op          3 allocs/op
+BenchmarkRegistryRealReal_normal-8                       2000000               629 ns/op              16 B/op          1 allocs/op
+BenchmarkRegistryRealReal_FastTags_withHiddenTag-8       3000000               571 ns/op               0 B/op          0 allocs/op
+BenchmarkRegistryRealReal_FastTags-8                     3000000               507 ns/op               0 B/op          0 allocs/op
 ```
 
 ### Tags
@@ -363,6 +363,8 @@ tags.Release()
 
 So for a very high-loaded application I'd recommend to use `FastTags`, while for the rest
 cases you may just use syntax-sugared `Tags`.
+
+The case without tags at all is the case `BenchmarkRegistry` (the fastest case).
 
 Garbage collection
 ==================
