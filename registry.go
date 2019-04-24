@@ -453,12 +453,13 @@ func generateStorageKey(metricType Type, key string, tags AnyTags) *keyGenerator
 	reusables := newKeyGeneratorReusables()
 	reusables.buf.WriteString(key)
 
-	if len(key) > 0 {
-		reusables.buf.WriteString(`,`)
-	}
 	if tags == nil {
 		tags = nilTags
 	}
+	if len(key) > 0 && tags.Len() > 0 {
+		reusables.buf.WriteString(`,`)
+	}
+
 	tags.WriteAsString(&reusables.buf)
 
 	if metricType > 0 {

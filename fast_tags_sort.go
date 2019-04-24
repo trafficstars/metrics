@@ -6,7 +6,7 @@ import (
 
 // this code is mostly copied from https://github.com/demdxx/sort-algorithms/blob/master/algorithms.go
 
-func (tags FastTags) sortBuiltin() {
+func (tags *FastTags) sortBuiltin() {
 	sort.Sort(tags)
 }
 

@@ -110,8 +110,11 @@ func (tags *FastTags) Release() {
 }
 
 // Len returns the amount/count of tags
-func (tags FastTags) Len() int {
-	return len(tags)
+func (tags *FastTags) Len() int {
+	if tags == nil {
+		return 0
+	}
+	return len(*tags)
 }
 
 // Less returns if the Key of the tag by index "i" is less (strings comparison) than the Key of the tag by index "j".
