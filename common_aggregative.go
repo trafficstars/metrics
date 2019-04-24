@@ -137,8 +137,7 @@ type AggregativeValue struct {
 
 // newAggregativeValue returns an empty AggregativeValue (as a memory-reuse-away constructor).
 func newAggregativeValue() *AggregativeValue {
-	r := aggregativeValuePool.Get().(*AggregativeValue)
-	return r
+	return aggregativeValuePool.Get().(*AggregativeValue)
 }
 
 // set makes the value look like if there were only one event with the value passed as the argument
