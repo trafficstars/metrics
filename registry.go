@@ -171,7 +171,7 @@ func (registry *Registry) listSorted() (result *Metrics) {
 }
 
 func (registry *Registry) List() (result *Metrics) {
-	return registry.listSorted()
+	return registry.list()
 }
 
 func (registry *Registry) remove(metric Metric) {
