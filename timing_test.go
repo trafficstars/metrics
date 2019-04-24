@@ -3,6 +3,7 @@ package metrics
 import (
 	"math/rand"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -127,7 +128,9 @@ func fillStats(metric interface {
 
 func checkValues(t *testing.T, values *AggregativeValues) {
 	assert.Equal(t, uint64(500000), uint64(values.Last.Avg.Get()))
+	assert.Equal(t, uint64(500000), uint64(values.Last.Sum.Get()))
 	assert.Equal(t, uint64(60), values.ByPeriod[0].Count)
+	assert.Equal(t, float64(12*(3000+4000+5000+6000+7000)), values.ByPeriod[0].Sum.Get())
 	assert.Equal(t, uint64(3000), uint64(values.ByPeriod[0].Min.Get()))
 	assert.Equal(t, uint64(500), uint64((values.ByPeriod[0].Avg.Get()+5)/10))
 	assert.Equal(t, uint64(2), uint64((*values.ByPeriod[0].AggregativeStatistics.GetPercentile(0.5)+500)/2500))
@@ -136,13 +139,14 @@ func checkValues(t *testing.T, values *AggregativeValues) {
 	assert.Equal(t, uint64(7000), uint64(values.ByPeriod[0].Max.Get()))
 	assert.Equal(t, uint64(63), values.ByPeriod[1].Count)
 	assert.Equal(t, uint64(3000), uint64(values.ByPeriod[1].Min.Get()))
-	assert.Equal(t, values.ByPeriod[3].String(), values.ByPeriod[2].String())
-	assert.Equal(t, values.ByPeriod[3].String(), values.ByPeriod[4].String())
-	assert.Equal(t, values.ByPeriod[3].String(), values.ByPeriod[5].String())
+	assert.Equal(t, strings.Split(values.ByPeriod[3].String(), "sum")[0], strings.Split(values.ByPeriod[2].String(), "sum")[0])
+	assert.Equal(t, strings.Split(values.ByPeriod[3].String(), "sum")[0], strings.Split(values.ByPeriod[4].String(), "sum")[0])
+	assert.Equal(t, strings.Split(values.ByPeriod[3].String(), "sum")[0], strings.Split(values.ByPeriod[5].String(), "sum")[0])
 	assert.Equal(t, uint64(64), values.Total.Count)
 	assert.Equal(t, uint64(3000), uint64(values.Total.Min.Get()))
 	assert.Equal(t, uint64(1), uint64(values.Total.Avg.Get()/10000))
 	assert.Equal(t, uint64(500000), uint64(values.Total.Max.Get()))
+	assert.Equal(t, float64(500000+12*(3000+4000+5000+6000+7000)+7000+6000+5000), values.Total.Sum.Get())
 }
 
 func TestTimingBuffered(t *testing.T) {

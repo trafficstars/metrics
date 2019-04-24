@@ -50,6 +50,25 @@ func BenchmarkList(b *testing.B) {
 	}
 }
 
+func BenchmarkListWithMemoryReuse(b *testing.B) {
+	initDefaultTags()
+	tags := Tags{
+		`tag0`:       0,
+		`tagString`:  `string`,
+		`tagBool`:    false,
+		`oneMoreTag`: nil,
+	}
+	for i := 0; i < 10000; i++ {
+		tags[`value`] = i
+		GaugeInt64(`test_metric`, tags)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		List().Release()
+	}
+}
+
 func BenchmarkGenerateStorageKey(b *testing.B) {
 	initDefaultTags()
 	b.ResetTimer()

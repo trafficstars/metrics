@@ -136,43 +136,47 @@ func (registry *Registry) Get(metricType Type, key string, tags AnyTags) Metric 
 }
 
 func (registry *Registry) set(metric Metric) error {
-	registry.storage.Set(metric.(interface{ GetKey() []byte }).GetKey(), metric)
+	registry.storage.Set(metric.GetKey(), metric)
 	return nil
 }
 
 func (registry *Registry) Set(metric Metric) error {
-	if v, _ := registry.storage.GetByBytes(metric.(interface{ GetKey() []byte }).GetKey()); v != nil {
+	if v, _ := registry.storage.GetByBytes(metric.GetKey()); v != nil {
 		return ErrAlreadyExists
 	}
 
 	return registry.set(metric)
 }
 
-func (registry *Registry) list() (result Metrics) {
+func (registry *Registry) list() *Metrics {
+	result := newMetrics()
 	for _, metricKey := range registry.storage.Keys() {
-		metric, _ := registry.storage.GetByBytes(metricKey.([]byte))
-		if metric == nil {
+		metricI, _ := registry.storage.GetByBytes(metricKey.([]byte))
+		if metricI == nil {
 			continue
 		}
-		result = append(result, metric.(Metric))
+		metric := metricI.(Metric)
+		if !metric.IsRunning() {
+			continue
+		}
+		*result = append(*result, metric)
 	}
-	return
+	return result
 }
 
-func (registry *Registry) listSorted() (result Metrics) {
+func (registry *Registry) listSorted() (result *Metrics) {
 	list := registry.list()
 	list.Sort()
 	return list
 }
 
-func (registry *Registry) List() (result Metrics) {
+func (registry *Registry) List() (result *Metrics) {
 	return registry.listSorted()
-	//return registry.list()
 }
 
 func (registry *Registry) remove(metric Metric) {
 	metric.Stop()
-	registry.storage.Unset(metric.(interface{ GetKey() []byte }).GetKey())
+	registry.storage.Unset(metric.GetKey())
 }
 
 func (registry *Registry) GetSender() Sender {
@@ -380,7 +384,7 @@ func (registry *Registry) Register(metric Metric, key string, inTags AnyTags) er
 	return registry.Set(metric)
 }
 
-func List() []Metric {
+func List() *Metrics {
 	return registry.List()
 }
 
@@ -389,7 +393,7 @@ func Get(metricType Type, key string, tags AnyTags) Metric {
 }
 
 // copied from https://github.com/demdxx/sort-algorithms/blob/master/algorithms.go
-func BubbleSort(data stringSlice) {
+func bubbleSort(data stringSlice) {
 	n := data.Len() - 1
 	b := false
 	for i := 0; i < n; i++ {

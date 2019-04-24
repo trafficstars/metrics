@@ -17,7 +17,7 @@ func (m *commonInt64) init(parent Metric, key string, tags AnyTags) {
 	m.common.init(parent, key, tags, func() bool { return m.wasUseless() })
 }
 
-// Increments is an analog of Add(1). It just adds "1" to the internal value and returns the result.
+// Increment is an analog of Add(1). It just adds "1" to the internal value and returns the result.
 func (m *commonInt64) Increment() int64 {
 	return m.Add(1)
 }

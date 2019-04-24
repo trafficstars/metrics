@@ -22,8 +22,8 @@ func (m *MetricCount) init(key string, tags AnyTags) {
 //
 // For the same key and tags it will return the same metric.
 //
-// If there's no such metric then it will create it, register in the registry and return it.
-// If there's already such metric then if will just return it.
+// If there's no such metric then it will create it, register it in the registry and return it.
+// If there's already such metric then it will just return the metric.
 func Count(key string, tags AnyTags) *MetricCount {
 	if IsDisabled() {
 		return (*MetricCount)(nil)

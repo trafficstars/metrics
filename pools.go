@@ -130,7 +130,17 @@ var (
 			return iterationHandler
 		},
 	}
+	metricsPool = &sync.Pool{
+		New: func() interface{} {
+			return &Metrics{}
+		},
+	}
 )
+
+func (s *Metrics) Release() {
+	*s = (*s)[:0]
+	metricsPool.Put(s)
+}
 
 func newBytesBuffer() *bytesBuffer {
 	return bytesBufferPool.Get().(*bytesBuffer)

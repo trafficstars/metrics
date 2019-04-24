@@ -14,10 +14,14 @@ func (s Metrics) Sort() {
 func (s Metrics) sortBuiltin() {
 	sort.Slice(s, func(i, j int) bool {
 		if bytes.Compare(
-			s[i].(interface{ GetKey() []byte }).GetKey(),
-			s[j].(interface{ GetKey() []byte }).GetKey()) < 0 {
+			s[i].GetKey(),
+			s[j].GetKey()) < 0 {
 			return true
 		}
 		return false
 	})
+}
+
+func newMetrics() *Metrics {
+	return metricsPool.Get().(*Metrics)
 }

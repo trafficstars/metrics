@@ -177,7 +177,7 @@ An aggregative metric has aggregative/summarized statistics for a few periods at
 * `1D` -- is the statistics for the last day
 * `Total` -- is the total statistics 
 
-Once per second the `Current` became `1S` and an empty `Current` appears. And there's a history of the last
+Once per second the `Current` became `1S` and an new empty `Current` appears instead. And there's a history of the last
 5 statistics for `1S` which is used to recalculate statistics for `5S`. There's in turn a history of the last
 12 statistics for `5S` which is used to recalculate statistics for `1M`. And so on.
 
@@ -327,6 +327,32 @@ BenchmarkRegistryRealReal_FastTags_withHiddenTag-8       5000000               2
 BenchmarkRegistryRealReal_FastTags-8                    10000000               233 ns/op               0 B/op          0 allocs/op
 ```
 
+For comparison `mutex.Lock`/`mutex.Unlock` takes
+```go
+BenchmarkMutexLockUnlock-8              30000000                57.7 ns/op
+```
+
+Also you can bypass any metric retrieval, for example:
+```go
+metric := metrics.GaugeInt64(`concurrent_requests`)
+metric.SetGCEnabled(false)
+http.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
+	metric.Increment()
+	[...]
+	metric.Decrement()
+})
+```
+
+The incremental and decremental are done in an atomic way and it's safe to use in a concurrent way:
+```go
+BenchmarkIncrementDecrement-8           100000000               14.0 ns/op             0 B/op          0 allocs/op
+```
+
+Also there's another approach to metrics retrieval -- metric families. It's when a family is retrieved beforehand (like
+the metric in the example above), but the specific metric is searched through the family using tags. It's a faster
+retrieval method, but less handy. We do not support such approach, yet; but I hope we will. IIRC, such approach
+is used in the official prometheus metrics library for Golang.
+
 ### Tags
 
 There're two implementations of tags:
@@ -364,7 +390,10 @@ tags.Release()
 So for a very high-loaded application I'd recommend to use `FastTags`, while for the rest
 cases you may just use syntax-sugared `Tags`.
 
-The case without tags at all is the case `BenchmarkRegistry` (the fastest case).
+The case without tags at all is the case `BenchmarkRegistry` (the fastest one):
+```go
+metrics.Count(`requests`, nil).Increment()
+```
 
 Garbage collection
 ==================

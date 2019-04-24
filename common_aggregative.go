@@ -130,6 +130,7 @@ type AggregativeValue struct {
 	Min   AtomicFloat64
 	Avg   AtomicFloat64
 	Max   AtomicFloat64
+	Sum   AtomicFloat64
 
 	AggregativeStatistics
 }
@@ -149,6 +150,7 @@ func (aggrV *AggregativeValue) set(v float64) {
 	aggrV.Min.Set(v)
 	aggrV.Avg.Set(v)
 	aggrV.Max.Set(v)
+	aggrV.Sum.Set(v)
 	if aggrV.AggregativeStatistics != nil {
 		aggrV.AggregativeStatistics.Set(v)
 	}
@@ -307,10 +309,13 @@ func (m *commonAggregative) considerValue(v float64) {
 			data.Max.SetFast(v)
 		}
 
+		data.Sum.AddFast(v)
+
 		data.Avg.SetFast((data.Avg.GetFast()*float64(count) + v) / (float64(count) + 1))
 		if data.AggregativeStatistics != nil {
 			data.AggregativeStatistics.ConsiderValue(v)
 		}
+
 		data.Count++
 	}
 
@@ -332,15 +337,16 @@ func (w *commonAggregative) GetValuePointers() *AggregativeValues {
 // String returns a JSON string representing values (min, max, count, ...) of an aggregative value
 func (v *AggregativeValue) String() string {
 	if v.AggregativeStatistics == nil {
-		return fmt.Sprintf(`{"count":%d,"min":%g,"avg":%g,"max":%g}`,
+		return fmt.Sprintf(`{"count":%d,"min":%g,"avg":%g,"max":%g,"sum":%g}`,
 			atomic.LoadUint64(&v.Count),
 			v.Min.Get(),
 			v.Avg.Get(),
 			v.Max.Get(),
+			v.Sum.Get(),
 		)
 	}
 	percentiles := v.AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
-	return fmt.Sprintf(`{"count":%d,"min":%g,"per1":%g,"per10":%g,"per50":%g,"avg":%g,"per90":%g,"per99":%g,"max":%g}`,
+	return fmt.Sprintf(`{"count":%d,"min":%g,"per1":%g,"per10":%g,"per50":%g,"avg":%g,"per90":%g,"per99":%g,"max":%g,"sum":%g}`,
 		atomic.LoadUint64(&v.Count),
 		v.Min.Get(),
 		*percentiles[0],
@@ -350,6 +356,7 @@ func (v *AggregativeValue) String() string {
 		*percentiles[3],
 		*percentiles[4],
 		v.Max.Get(),
+		v.Sum.Get(),
 	)
 }
 
@@ -406,6 +413,7 @@ func (m *commonAggregative) Send(sender Sender) {
 		sender.SendFloat64(m.parent, baseKey+`min`, data.Min.Get())
 		sender.SendFloat64(m.parent, baseKey+`avg`, data.Avg.Get())
 		sender.SendFloat64(m.parent, baseKey+`max`, data.Max.Get())
+		sender.SendFloat64(m.parent, baseKey+`sum`, data.Sum.Get())
 		if data.AggregativeStatistics == nil {
 			return
 		}
@@ -525,6 +533,7 @@ func (r *AggregativeValue) MergeData(e *AggregativeValue) {
 	if e.Max > r.Max || (r.Count == 0 && e.Count != 0) {
 		r.Max = e.Max
 	}
+	r.Sum += e.Sum
 
 	addCount := e.Count
 	addValue := e.Avg.GetFast()

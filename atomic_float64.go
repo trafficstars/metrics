@@ -99,24 +99,25 @@ func (f *AtomicFloat64) Add(a float64) float64 {
 	}
 }
 
-// GetFast is like Get but without atomicity
+// GetFast is like Get but without atomicity (faster, but unsafe)
 func (f *AtomicFloat64) GetFast() float64 {
 	return math.Float64frombits(*(*uint64)(f))
 }
 
-// SetFast is like Set but without atomicity
+// SetFast is like Set but without atomicity (faster, but unsafe)
 func (f *AtomicFloat64) SetFast(n float64) {
 	*(*uint64)(f) = math.Float64bits(n)
 }
 
-// AddFast is like Add but without atomicity
+// AddFast is like Add but without atomicity (faster, but unsafe)
 func (f *AtomicFloat64) AddFast(n float64) float64 {
 	s := math.Float64frombits(*(*uint64)(f)) + n
 	*(*uint64)(f) = math.Float64bits(s)
 	return s
 }
 
-// AtomicFloat64Ptr is like AtomicFloat64 but stores the value in a pointer "*float64".
+// AtomicFloat64Ptr is like AtomicFloat64 but stores the value in a pointer "*float64" (which in turn could be
+// changed from the outside to point at some other variable).
 type AtomicFloat64Ptr struct {
 	Pointer *float64
 }
@@ -152,17 +153,17 @@ func (f *AtomicFloat64Ptr) Add(n float64) float64 {
 	}
 }
 
-// GetFast is like Get but without atomicity
+// GetFast is like Get but without atomicity (faster, but unsafe)
 func (f *AtomicFloat64Ptr) GetFast() float64 {
 	return *f.Pointer
 }
 
-// SetFast is like Set but without atomicity
+// SetFast is like Set but without atomicity (faster, but unsafe)
 func (f *AtomicFloat64Ptr) SetFast(n float64) {
 	*f.Pointer = n
 }
 
-// AddFast is like Add but without atomicity
+// AddFast is like Add but without atomicity (faster, but unsafe)
 func (f *AtomicFloat64Ptr) AddFast(n float64) float64 {
 	*f.Pointer += n
 	return *f.Pointer

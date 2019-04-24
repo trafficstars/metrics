@@ -10,6 +10,7 @@ type Metric interface {
 	Run(time.Duration)
 	Stop()
 	Send(Sender)
+	GetKey() []byte
 	GetType() Type
 	GetName() string
 	GetTags() *FastTags

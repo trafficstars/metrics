@@ -1,6 +1,6 @@
 package metrics
 
-// AnyTags is an abstraction of "Tags" and "*FastTags"
+// AnyTags is an abstraction over "Tags" and "*FastTags"
 type AnyTags interface {
 	// Get value of tag by key
 	Get(key string) interface{}

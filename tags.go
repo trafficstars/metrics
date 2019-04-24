@@ -217,7 +217,7 @@ func (tags Tags) WriteAsString(writeStringer interface{ WriteString(string) (int
 		if len(*keys) > 24 {
 			sort.Strings(*keys) // It requires to wrap the slice into an interface, so it has a memory allocation
 		} else {
-			BubbleSort(*keys)
+			bubbleSort(*keys)
 		}
 	}
 
