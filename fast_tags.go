@@ -13,6 +13,12 @@ type FastTag struct {
 	// The main value is the StringValue. "intValue" exists only for optimizations
 	intValue      int64
 	intValueIsSet bool
+
+	// This check was temporary added only for debugging (to locate and fix one bug in this module)
+	// It negatively affects the performance and should be removed in future (like in >= 2020 year)
+	// A marker if the tag is already in-use and cannot be returned from a pool with Get()
+	isInUse bool
+	// EndOf the debugging check
 }
 
 var (
@@ -24,7 +30,17 @@ var (
 )
 
 func newFastTag() *FastTag {
-	return fastTagPool.Get().(*FastTag)
+	tag := fastTagPool.Get().(*FastTag)
+
+	// This check was temporary added only for debugging (to locate and fix one bug in this module)
+	// It negatively affects the performance and should be removed in future (like in >= 2020 year)
+	if tag.isInUse {
+		panic(`A attempt to acquire a busy FastTag`)
+	}
+	tag.isInUse = true
+	// EndOf the debugging check
+
+	return tag
 }
 
 // Release puts the FastTag back into the pool. The pool is use for memory reuse (to do not GC and reallocate
@@ -32,6 +48,16 @@ func newFastTag() *FastTag {
 //
 // This method is supposed to be used to internal needs, only.
 func (tag *FastTag) Release() {
+
+	// This check was temporary added only for debugging (to locate and fix one bug in this module)
+	// It negatively affects the performance and should be removed in future (like in >= 2020 year)
+	if !tag.isInUse {
+		panic(`An attempt to release a (already) released FastTag`)
+	}
+	tag.isInUse = false
+	// EndOf the debugging check
+
+	tag.intValueIsSet = false
 	fastTagPool.Put(tag)
 }
 
