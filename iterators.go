@@ -156,22 +156,31 @@ func (iterationHandlers *iterationHandlersT) getOrCreateIterationHandler(iterato
 		return iterationHandler
 	}
 
+	// OK, it seems there's no such handler, so we need to create one.
+	// So we need to lock iterationHandlers (before change it)
+	//
+	// Lock()/Unlock() takes 30-60ns so we should try avoid them if possible.
+	// That's why we didn't call the Lock() in the start of this function.
+	//
+	// Moreover a "defer" takes additional 20-60ns. While it's required to
+	// use defer to make the code safier.
 	iterationHandlers.Lock()
+	defer iterationHandlers.Unlock()
+
+	// But iterationHandlers wasn't locked while the previous check,
+	// so some other concurrent goroutine may already create the handler
 	iterationHandler = iterationHandlers.getIterationHandler(iterator)
 	if iterationHandler != nil {
-		iterationHandlers.Unlock()
 		return iterationHandler
 	}
 
 	iterationHandler = newIterationHandler()
 	iterationHandler.iterateInterval = iterator.GetInterval()
 	if iterationHandler.iterateInterval == time.Duration(0) {
-		iterationHandlers.Unlock()
 		return nil
 	}
 	iterationHandler.start()
 	iterationHandlers.m.Set(uint64(iterationHandler.iterateInterval.Nanoseconds()), iterationHandler)
-	iterationHandlers.Unlock()
 	return iterationHandler
 }
 
