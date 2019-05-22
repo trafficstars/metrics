@@ -33,6 +33,10 @@ var (
 	}
 )
 
+// SetDisableFastTags forces to use Tags instead of FastTags. So if SetDisableFastTags(true) is set then
+// NewFastTags() will return "Tags" instead of "FastTags".
+//
+// This is supposed to be used only for debugging (like to check if there's a bug caused by FastTags).
 func SetDisableFastTags(newDisableFastTags bool) {
 	disableFastTags = newDisableFastTags
 }
@@ -123,12 +127,15 @@ func newFastTags() *FastTags {
 	return tags
 }
 
-// NewFastTags returns an implementation of AnyTags with a full memory reuse support.
+// NewFastTags returns an implementation of AnyTags with a full memory reuse support (if SetDisableFastTags(true) is
+// not set).
 //
 // This implementation is supposed to be used if it's required to reduce a pressure on GC (see "GCCPUFraction",
 // https://golang.org/pkg/runtime/#MemStats).
 //
 // It could be required if there's a metric that is retrieved very often and it's required to reduce CPU utilization.
+//
+// If SetDisableFastTags(true) is set then it returns the same as "NewTags" (without full memory reuse).
 //
 // See "Tags" in README.md
 func NewFastTags() AnyTags {
