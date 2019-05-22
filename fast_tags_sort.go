@@ -10,7 +10,7 @@ func (tags *FastTags) sortBuiltin() {
 	sort.Sort(tags)
 }
 
-func (tags FastTags) sortBubble() {
+func (tags *FastTags) sortBubble() {
 	n := tags.Len() - 1
 	b := false
 	for i := 0; i < n; i++ {
@@ -28,10 +28,10 @@ func (tags FastTags) sortBubble() {
 }
 
 func (tags FastTags) sortQuick_partition(p int, r int) int {
-	x := tags[r]
+	x := tags.Slice[r]
 	i := p - 1
 	for j := p; j < r; j++ {
-		if tags[j].Key <= x.Key {
+		if tags.Slice[j].Key <= x.Key {
 			i++
 			tags.Swap(i, j)
 		}
@@ -51,5 +51,5 @@ func (tags FastTags) sortQuick_r(p int, r int) {
 }
 
 func (tags FastTags) sortQuick() {
-	tags.sortQuick_r(0, len(tags)-1)
+	tags.sortQuick_r(0, len(tags.Slice)-1)
 }

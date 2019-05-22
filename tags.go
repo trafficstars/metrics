@@ -164,16 +164,17 @@ func (tags Tags) Each(fn func(k string, v interface{}) bool) {
 func (tags Tags) ToFastTags() *FastTags {
 	keys := tags.Keys()
 	sort.Strings(keys)
-	r := make(FastTags, 0, len(keys))
+
+	r := newFastTags()
 
 	for _, k := range keys {
 		tag := newFastTag()
 		tag.Key = k
 		tag.StringValue = TagValueToString(tags[k])
 		tag.intValue, _ = toInt64(tags[k])
-		r = append(r, tag)
+		r.Slice = append(r.Slice, tag)
 	}
-	return &r
+	return r
 }
 
 func (tags Tags) Len() int {

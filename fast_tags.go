@@ -5,6 +5,10 @@ import (
 	"sync"
 )
 
+var (
+	disableFastTags = false
+)
+
 // FastTag is an element of FastTags (see "FastTags")
 type FastTag struct {
 	Key         string
@@ -28,6 +32,10 @@ var (
 		},
 	}
 )
+
+func SetDisableFastTags(newDisableFastTags bool) {
+	disableFastTags = newDisableFastTags
+}
 
 func newFastTag() *FastTag {
 	tag := fastTagPool.Get().(*FastTag)
@@ -92,7 +100,11 @@ func (tag *FastTag) Set(key string, value interface{}) {
 	}
 }
 
-type FastTags []*FastTag
+type FastTags struct {
+	Slice []*FastTag
+
+	isInUse bool
+}
 
 var (
 	fastTagsPool = sync.Pool{
@@ -102,6 +114,15 @@ var (
 	}
 )
 
+func newFastTags() *FastTags {
+	tags := fastTagsPool.Get().(*FastTags)
+	if tags.isInUse {
+		panic(`An attempt to acquire a busy FastTags`)
+	}
+	tags.isInUse = true
+	return tags
+}
+
 // NewFastTags returns an implementation of AnyTags with a full memory reuse support.
 //
 // This implementation is supposed to be used if it's required to reduce a pressure on GC (see "GCCPUFraction",
@@ -110,13 +131,13 @@ var (
 // It could be required if there's a metric that is retrieved very often and it's required to reduce CPU utilization.
 //
 // See "Tags" in README.md
-func NewFastTags() *FastTags {
-	return fastTagsPool.Get().(*FastTags)
-}
+func NewFastTags() AnyTags {
+	if disableFastTags {
+		return NewTags()
+	}
 
-/*func NewFastTags() Tags {
-	return NewTags()
-}*/
+	return newFastTags()
+}
 
 // Release clears the tags and puts the them back into the pool. It's required for memory reusing.
 //
@@ -128,10 +149,14 @@ func (tags *FastTags) Release() {
 	if tags == nil {
 		return
 	}
-	for _, tag := range *tags {
+	if !tags.isInUse {
+		panic(`An attempt to release a released FastTags`)
+	}
+	tags.isInUse = false
+	for _, tag := range tags.Slice {
 		tag.Release()
 	}
-	*tags = (*tags)[:0]
+	tags.Slice = tags.Slice[:0]
 	fastTagsPool.Put(tags)
 }
 
@@ -140,24 +165,28 @@ func (tags *FastTags) Len() int {
 	if tags == nil {
 		return 0
 	}
-	return len(*tags)
+	return len(tags.Slice)
 }
 
 // Less returns if the Key of the tag by index "i" is less (strings comparison) than the Key of the tag by index "j".
-func (tags FastTags) Less(i, j int) bool {
-	return tags[i].Key < tags[j].Key
+func (tags *FastTags) Less(i, j int) bool {
+	return tags.Slice[i].Key < tags.Slice[j].Key
 }
 
 // Swap just swaps tags by indexes "i" and "j"
-func (tags FastTags) Swap(i, j int) {
-	tags[i], tags[j] = tags[j], tags[i]
+func (tags *FastTags) Swap(i, j int) {
+	tags.Slice[i], tags.Slice[j] = tags.Slice[j], tags.Slice[i]
 }
 
 // Sort sorts tags by keys (using Swap, Less and Len)
-func (tags FastTags) Sort() {
-	if len(tags) < 16 {
+func (tags *FastTags) Sort() {
+	// We use our-own implementation of sorts without interfaces which  doesn't require a memory allocation
+	if len(tags.Slice) < 16 {
+		// On a small slice "Bubble" is really not that bad (k*O(n*n) with a small "k").
 		tags.sortBubble()
 	} else {
+		// TODO: May be it's not required to reimplement QuickSort if some of magic comments
+		// (https://github.com/xaionaro-go/hackery) may be used to safely prevent memory allocation.
 		tags.sortQuick()
 	}
 }
@@ -165,8 +194,8 @@ func (tags FastTags) Sort() {
 // findStupid finds the tag with key "key" using a full scan
 //
 // It returns the index of the found tag. If the tag wasn't found then -1 will be returned.
-func (tags FastTags) findStupid(key string) int {
-	for idx, tag := range tags {
+func (tags *FastTags) findStupid(key string) int {
+	for idx, tag := range tags.Slice {
 		if tag.Key == key {
 			return idx
 		}
@@ -179,17 +208,17 @@ func (tags FastTags) findStupid(key string) int {
 // It returns the index of the found tag. If the tag wasn't found then -1 will be returned.
 //
 // Tags should be sorted before use this method.
-func (tags FastTags) findFast(key string) int {
-	l := len(tags)
+func (tags *FastTags) findFast(key string) int {
+	l := len(tags.Slice)
 	idx := sort.Search(l, func(i int) bool {
-		return tags[i].Key >= key
+		return tags.Slice[i].Key >= key
 	})
 
 	if idx < 0 || idx >= l {
 		return -1
 	}
 
-	if tags[idx].Key != key {
+	if tags.Slice[idx].Key != key {
 		return -1
 	}
 
@@ -197,33 +226,33 @@ func (tags FastTags) findFast(key string) int {
 }
 
 // IsSet returns true if there's a tag with key "key", otherwise -- false.
-func (tags FastTags) IsSet(key string) bool {
+func (tags *FastTags) IsSet(key string) bool {
 	return tags.findStupid(key) != -1
 }
 
 // Get returns the value of the tag with key "key".
 //
 // If there's no such tag then nil will be returned.
-func (tags FastTags) Get(key string) interface{} {
+func (tags *FastTags) Get(key string) interface{} {
 	idx := tags.findStupid(key)
 	if idx == -1 {
 		return nil
 	}
 
-	return tags[idx].GetValue()
+	return tags.Slice[idx].GetValue()
 }
 
 // Set sets the value of the tag with key "key" to "value". If there's no such tag then creates it and sets the value.
 func (tags *FastTags) Set(key string, value interface{}) AnyTags {
 	idx := tags.findStupid(key)
 	if idx != -1 {
-		(*tags)[idx].Set(key, value)
+		tags.Slice[idx].Set(key, value)
 		return tags
 	}
 
 	newTag := newFastTag()
 	newTag.Set(key, value)
-	*tags = append(*tags, newTag)
+	tags.Slice = append(tags.Slice, newTag)
 	return tags
 }
 
@@ -233,7 +262,7 @@ func (tags *FastTags) Each(fn func(k string, v interface{}) bool) {
 	if tags == nil {
 		return
 	}
-	for _, tag := range *tags {
+	for _, tag := range tags.Slice {
 		if !fn(tag.Key, tag.GetValue()) {
 			break
 		}
@@ -255,8 +284,8 @@ func (tags *FastTags) ToMap(fieldMaps ...map[string]interface{}) map[string]inte
 		return nil
 	}
 	fields := map[string]interface{}{}
-	if *tags != nil {
-		for _, tag := range *tags {
+	if tags != nil {
+		for _, tag := range tags.Slice {
 			fields[tag.Key] = tag.GetValue()
 		}
 	}
@@ -285,7 +314,7 @@ func (tags *FastTags) WriteAsString(writeStringer interface{ WriteString(string)
 
 	tags.Sort()
 	tagsCount := 0
-	for _, tag := range *tags {
+	for _, tag := range tags.Slice {
 		if defaultTags.IsSet(tag.Key) {
 			continue
 		}

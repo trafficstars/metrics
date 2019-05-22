@@ -360,7 +360,7 @@ func (registry *Registry) Register(metric Metric, key string, inTags AnyTags) er
 	var tags *FastTags
 
 	if inTags != nil {
-		tags = NewFastTags()
+		tags = newFastTags()
 		inTags.Each(func(k string, v interface{}) bool {
 			tags.Set(k, v)
 			return true
@@ -424,8 +424,8 @@ func considerHiddenTags(tags AnyTags) {
 			}
 		}
 	case *FastTags:
-		for idx := range *inTags {
-			tag := (*inTags)[idx]
+		for idx := range inTags.Slice {
+			tag := inTags.Slice[idx]
 			var s string
 			if !tag.intValueIsSet {
 				s = tag.StringValue
