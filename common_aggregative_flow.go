@@ -129,9 +129,9 @@ func (s *aggregativeStatisticsFlow) considerValue(v float64) {
 
 // ConsiderValue is an analog of Prometheus' observe (see "Aggregative metrics" in README.md)
 func (s *aggregativeStatisticsFlow) ConsiderValue(v float64) {
-	s.locker.Lock()
+	//s.locker.Lock()
 	s.considerValue(v)
-	s.locker.Unlock()
+	//s.locker.Unlock()
 }
 
 // Set resets the statistics and sets only one event with the value passed as the argument,

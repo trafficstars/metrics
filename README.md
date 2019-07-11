@@ -253,11 +253,18 @@ is monotone. Otherwise it will be inaccurate, but *usually* good enough.
 calculate any percentile values at any time. This method more precise than the "Flow", but requires much more RAM. The
 size of the buffer with the sample values is regulated via method `SetAggregativeBufferSize`
 (the default value is "1000"); the more buffer size is the more accuracy of percentile values is,
-but more RAM and CPU is required.
+but more RAM is required.
+
+Buffered method is much faster than the Flow method:
+```
+BenchmarkConsiderValueFlow-8             5000000               338 ns/op
+BenchmarkConsiderValueBuffered-8        20000000                98.9 ns/op
+```
 
 ###### Use case
 
-* It's required to get precise percentile values
+* It's required to get precise percentile values.
+* It's required to use really fast metrics.
 * There won't be a lot of such metrics (otherwise it will utilize a lot of RAM).
 
 ###### Buffer handling

@@ -166,6 +166,11 @@ func (aggrV *AggregativeValue) LockDo(fn func(*AggregativeValue)) {
 	aggrV.Unlock()
 }
 
+// Do is like LockDo, but without Lock :)
+func (aggrV *AggregativeValue) Do(fn func(*AggregativeValue)) {
+	fn(aggrV)
+}
+
 // GetAvg just returns the average value
 func (aggrV *AggregativeValue) GetAvg() float64 {
 	if aggrV == nil {
@@ -291,6 +296,10 @@ func (m *commonAggregative) GetAggregationPeriods() (r []AggregationPeriod) {
 
 // considerValue is an analog of method `Observe` of prometheus' metrics.
 func (m *commonAggregative) considerValue(v float64) {
+	enqueueConsiderValue(m.doConsiderValue, v)
+}
+
+func (m *commonAggregative) doConsiderValue(v float64) {
 	if m == nil {
 		return
 	}
@@ -318,10 +327,9 @@ func (m *commonAggregative) considerValue(v float64) {
 		data.Count++
 	}
 
-	(*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Current)))).LockDo(appendData)
-	(*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Total)))).LockDo(appendData)
+	(*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Current)))).Do(appendData)
+	(*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Total)))).Do(appendData)
 	(*AggregativeValue)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&m.data.Last)))).set(v)
-
 }
 
 // GetValuePointers returns the pointer to the collection of aggregative values (min, max, ... for every aggregation

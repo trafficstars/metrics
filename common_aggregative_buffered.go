@@ -111,6 +111,16 @@ func (s *aggregativeStatisticsBuffered) GetPercentiles(percentiles []float64) []
 	return r
 }
 
+var (
+	randIntnPosition uint64
+)
+
+func randIntn(n uint64) uint64 {
+	// We don't require atomicity here because corrupted number is good enough for us, too
+	randIntnPosition = 12873470327*randIntnPosition + 6845629117
+	return randIntnPosition % n
+}
+
 func (s *aggregativeStatisticsBuffered) considerValue(v float64) {
 	s.tickID++
 	if s.filledSize < uint32(bufferSize) {
@@ -125,9 +135,9 @@ func (s *aggregativeStatisticsBuffered) considerValue(v float64) {
 	}
 
 	// The more history we have the more rarely we should update items
-	// That's why here's rand.Intn(s.tickID) instead of rand.Intn(bufferSize)
-	randIdx := rand.Intn(int(s.tickID))
-	if randIdx >= int(bufferSize) {
+	// That's why here's randIntn(s.tickID) instead of randIntn(bufferSize)
+	randIdx := randIntn(uint64(s.tickID))
+	if randIdx >= uint64(bufferSize) {
 		return
 	}
 
@@ -140,9 +150,9 @@ func (s *aggregativeStatisticsBuffered) considerValue(v float64) {
 
 // ConsiderValue is an analog of Prometheus' observe (see "Aggregative metrics" in README.md)
 func (s *aggregativeStatisticsBuffered) ConsiderValue(v float64) {
-	s.locker.Lock()
+	//s.locker.Lock()
 	s.considerValue(v)
-	s.locker.Unlock()
+	//s.locker.Unlock()
 }
 
 /*func (s *AggregativeStatisticsBuffered) setItem(idx int, value float64, tickID uint64) {

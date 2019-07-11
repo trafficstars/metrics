@@ -37,11 +37,9 @@ func BenchmarkConsiderValueFlow(b *testing.B) {
 	m := commonAggregativeFlowTest{}
 	m.init(&m, `test`, nil)
 	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			m.considerValue(1000000)
-		}
-	})
+	for i := 0; i < b.N; i++ {
+		m.considerValue(1000000)
+	}
 }
 
 func BenchmarkDoSliceFlow(b *testing.B) {
@@ -84,11 +82,9 @@ func BenchmarkConsiderValueBuffered(b *testing.B) {
 	m := commonAggregativeBufferedTest{}
 	m.init(&m, `test`, nil)
 	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			m.considerValue(1000000)
-		}
-	})
+	for i := 0; i < b.N; i++ {
+		m.considerValue(1000000)
+	}
 }
 
 func BenchmarkDoSliceBuffered(b *testing.B) {

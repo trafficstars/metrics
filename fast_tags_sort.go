@@ -1,10 +1,19 @@
 package metrics
 
 import (
+	"math/rand"
 	"sort"
 )
 
 // this code is mostly copied from https://github.com/demdxx/sort-algorithms/blob/master/algorithms.go
+
+func (tags *FastTags) shuffle() {
+	// This function is used only for as a benchmark helper, so there's no need to shuffle correctly.
+	newIdx := rand.Perm(tags.Len())
+	for oldIdx, newIdx := range newIdx {
+		tags.Swap(oldIdx, newIdx)
+	}
+}
 
 func (tags *FastTags) sortBuiltin() {
 	sort.Sort(tags)
