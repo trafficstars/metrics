@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"math"
 	"math/rand"
 	"sort"
 )
@@ -115,9 +116,18 @@ var (
 	randIntnPosition uint64
 )
 
+func init() {
+	for i:=0; i<100; i++ {
+		randIntn(math.MaxUint64)
+	}
+}
+
 func randIntn(n uint64) uint64 {
 	// We don't require atomicity here because corrupted number is good enough for us, too
 	randIntnPosition = 12873470327*randIntnPosition + 6845629117
+	if n == math.MaxUint64 {
+		return randIntnPosition
+	}
 	return randIntnPosition % n
 }
 
