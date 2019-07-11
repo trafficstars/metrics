@@ -111,6 +111,31 @@ func BenchmarkGetPercentilesBuffered(b *testing.B) {
 	}
 }
 
+type commonAggregativeSimpleTest struct {
+	commonAggregativeSimple
+}
+
+func (m *commonAggregativeSimpleTest) Release() {
+	return
+}
+func (m *commonAggregativeSimpleTest) GetType() Type {
+	return TypeTimingSimple
+}
+
+func BenchmarkConsiderValueSimple(b *testing.B) {
+	Reset()
+	m := commonAggregativeSimpleTest{}
+	m.init(&m, `test`, nil)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.considerValue(1000000)
+	}
+}
+
+var (
+	testMSimple = &commonAggregativeSimpleTest{}
+)
+
 func init() {
 	{
 		m := testMBuffered
@@ -122,6 +147,14 @@ func init() {
 
 	{
 		m := testMFlow
+		m.init(m, `test`, nil)
+		for i := uint(0); i < bufferSize; i++ {
+			m.considerValue(float64(i))
+		}
+	}
+
+	{
+		m := testMSimple
 		m.init(m, `test`, nil)
 		for i := uint(0); i < bufferSize; i++ {
 			m.considerValue(float64(i))

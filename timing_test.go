@@ -175,6 +175,7 @@ func TestTimingFlow(t *testing.T) {
 	checkValues(t, metric.GetValuePointers())
 }
 
+
 func BenchmarkNewTimingBuffered(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
