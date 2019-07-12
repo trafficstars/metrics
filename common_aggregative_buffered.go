@@ -113,19 +113,20 @@ func (s *aggregativeStatisticsBuffered) GetPercentiles(percentiles []float64) []
 }
 
 var (
-	randIntnPosition uint64
+	randIntnPosition uint32
 )
 
 func init() {
-	for i:=0; i<100; i++ {
-		randIntn(math.MaxUint64)
+	// get an adequate starting seed
+	for i := 0; i < 100; i++ {
+		randIntn(math.MaxUint32)
 	}
 }
 
-func randIntn(n uint64) uint64 {
+func randIntn(n uint32) uint32 {
 	// We don't require atomicity here because corrupted number is good enough for us, too
-	randIntnPosition = 12873470327*randIntnPosition + 6845629117
-	if n == math.MaxUint64 {
+	randIntnPosition = 3948558707 * (randIntnPosition + 1948560947)
+	if n == math.MaxUint32 {
 		return randIntnPosition
 	}
 	return randIntnPosition % n
@@ -146,8 +147,8 @@ func (s *aggregativeStatisticsBuffered) considerValue(v float64) {
 
 	// The more history we have the more rarely we should update items
 	// That's why here's randIntn(s.tickID) instead of randIntn(bufferSize)
-	randIdx := randIntn(uint64(s.tickID))
-	if randIdx >= uint64(bufferSize) {
+	randIdx := randIntn(uint32(s.tickID))
+	if randIdx >= uint32(bufferSize) {
 		return
 	}
 

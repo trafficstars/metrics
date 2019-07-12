@@ -35,7 +35,7 @@ func guessPercentileValue(curValue, newValue float64, count uint64, perc float64
 	inertness := float64(count) / iterationsRequiredPerSecond
 
 	// See "How the calculation of percentile values works" in README.md
-	requireGreater := float64(randIntn(math.MaxUint64)) / float64(math.MaxUint64) > perc
+	requireGreater := float64(randIntn(math.MaxUint32))/float64(math.MaxUint32) > perc
 
 	if newValue > curValue {
 		if requireGreater {
