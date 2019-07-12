@@ -257,9 +257,9 @@ but more RAM is required.
 
 Buffered method is much faster than the Flow method:
 ```
-BenchmarkConsiderValueFlow-8            10000000               149 ns/op
-BenchmarkConsiderValueBuffered-8        20000000                88.8 ns/op
-BenchmarkConsiderValueSimple-8          20000000                70.0 ns/op
+BenchmarkConsiderValueFlow-8            20000000               120 ns/op               0 B/op          0 allocs/op
+BenchmarkConsiderValueBuffered-8        20000000                75.6 ns/op             0 B/op          0 allocs/op
+BenchmarkConsiderValueSimple-8          30000000                54.3 ns/op             0 B/op          0 allocs/op
 ```
 
 ###### Use case

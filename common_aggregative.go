@@ -296,7 +296,7 @@ func (m *commonAggregative) GetAggregationPeriods() (r []AggregationPeriod) {
 
 // considerValue is an analog of method `Observe` of prometheus' metrics.
 func (m *commonAggregative) considerValue(v float64) {
-	enqueueConsiderValue(m.doConsiderValue, v)
+	enqueueConsiderValue(m, v)
 }
 
 func (m *commonAggregative) doConsiderValue(v float64) {
