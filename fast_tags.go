@@ -19,7 +19,7 @@ type FastTag struct {
 	intValueIsSet bool
 
 	// This check was temporary added only for debugging (to locate and fix one bug in this module)
-	// It negatively affects the performance and should be removed in future (like in >= 2020 year)
+	// It negatively affects the performance and should be removed in future (like in >= 2021 year)
 	// A marker if the tag is already in-use and cannot be returned from a pool with Get()
 	isInUse bool
 	// EndOf the debugging check
@@ -45,7 +45,7 @@ func newFastTag() *FastTag {
 	tag := fastTagPool.Get().(*FastTag)
 
 	// This check was temporary added only for debugging (to locate and fix one bug in this module)
-	// It negatively affects the performance and should be removed in future (like in >= 2020 year)
+	// It negatively affects the performance and should be removed in future (like in >= 2021 year)
 	if tag.isInUse {
 		panic(`A attempt to acquire a busy FastTag`)
 	}
@@ -62,7 +62,7 @@ func newFastTag() *FastTag {
 func (tag *FastTag) Release() {
 
 	// This check was temporary added only for debugging (to locate and fix one bug in this module)
-	// It negatively affects the performance and should be removed in future (like in >= 2020 year)
+	// It negatively affects the performance and should be removed in future (like in >= 2021 year)
 	if !tag.isInUse {
 		panic(`An attempt to release a (already) released FastTag`)
 	}
