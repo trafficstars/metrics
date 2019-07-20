@@ -138,6 +138,9 @@ var (
 )
 
 func (s *Metrics) Release() {
+	if !memoryReuse {
+		return
+	}
 	*s = (*s)[:0]
 	metricsPool.Put(s)
 }

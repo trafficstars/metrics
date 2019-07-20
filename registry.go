@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"bytes"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,15 +12,14 @@ import (
 )
 
 const (
-	defaultIterateInterval = 10 * time.Second
+	defaultIterateInterval = time.Minute
 	gcUselessLimit         = 5
 )
 
 const (
 	monitorState_Stopped  = 0
-	monitorState_Starting = 1
-	monitorState_Started  = 2
-	monitorState_Stopping = 3
+	monitorState_Started  = 1
+	monitorState_Stopping = 2
 )
 
 var (
@@ -33,10 +33,10 @@ type IterateIntervaler interface {
 
 type Registry struct {
 	storage                  atomicmap.Map
-	isDisabled               uint64
-	metricSender             Sender
+	isDisabled               uint32
+	metricSender             *Sender
 	metricsIterateIntervaler IterateIntervaler
-	monitorState             uint64
+	monitorState             uint32
 	hiddenTags               *hiddenTagInternal
 	defaultGCEnabled         uint32
 	defaultIsRunned          uint32
@@ -47,12 +47,12 @@ func SetLimit(newLimit uint) {
 }
 
 func (registry *Registry) SetDisabled(newIsDisabled bool) bool {
-	newValue := uint64(0)
+	newValue := uint32(0)
 	if newIsDisabled {
 		newValue = 1
 	}
 
-	return atomic.SwapUint64(&registry.isDisabled, newValue) != 0
+	return atomic.SwapUint32(&registry.isDisabled, newValue) != 0
 }
 
 func SetDisabled(newIsDisabled bool) bool {
@@ -60,7 +60,7 @@ func SetDisabled(newIsDisabled bool) bool {
 }
 
 func (registry *Registry) IsDisabled() bool {
-	return atomic.LoadUint64(&registry.isDisabled) != 0
+	return atomic.LoadUint32(&registry.isDisabled) != 0
 }
 
 func IsDisabled() bool {
@@ -105,6 +105,7 @@ func (b *keyGeneratorReusables) Release() {
 func init() {
 	SetDefaultGCEnabled(true)
 	SetDefaultIsRunned(true)
+	SetSender(nil)
 }
 
 func (registry *Registry) get(metricType Type, key string, tags AnyTags) Metric {
@@ -117,13 +118,8 @@ func (registry *Registry) get(metricType Type, key string, tags AnyTags) Metric 
 	}
 	r := rI.(Metric)
 	if !r.IsRunning() {
-		return nil
-		/* Works unstable, commented for a while:
-		if !r.IsRunning() {
-			r.Run(metricsRegistry.GetDefaultIterateInterval())
-		}
-		m.set(r) // may be GC already cleanup this metric, so re-set it
-		*/
+		r.Run(registry.GetDefaultIterateInterval())
+		_ = registry.set(r) // may be GC already cleanup this metric, so re-set it
 	}
 	return r
 }
@@ -136,7 +132,7 @@ func (registry *Registry) Get(metricType Type, key string, tags AnyTags) Metric 
 }
 
 func (registry *Registry) set(metric Metric) error {
-	registry.storage.Set(metric.GetKey(), metric)
+	_ = registry.storage.Set(metric.GetKey(), metric)
 	return nil
 }
 
@@ -176,20 +172,15 @@ func (registry *Registry) List() (result *Metrics) {
 
 func (registry *Registry) remove(metric Metric) {
 	metric.Stop()
-	registry.storage.Unset(metric.GetKey())
+	_ = registry.storage.Unset(metric.GetKey())
 }
 
 func (registry *Registry) GetSender() Sender {
-	return registry.metricSender
+	return *(*Sender)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&registry.metricSender))))
 }
 
-func (registry *Registry) SetDefaultSender(newMetricSender Sender) {
-	registry.stopMonitor()
-	registry.metricSender = newMetricSender
-	registry.startMonitor()
-}
-func (registry *Registry) GetDefaultSender() Sender {
-	return registry.metricSender
+func (registry *Registry) SetSender(newMetricSender Sender) {
+	atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&registry.metricSender)), (unsafe.Pointer)(&newMetricSender))
 }
 
 func (registry *Registry) SetDefaultGCEnabled(newGCEnabledValue bool) {
@@ -232,8 +223,8 @@ func GetDefaultIsRunned() bool {
 	return registry.GetDefaultIsRunned()
 }
 
-func (registry *Registry) getMonitorState() uint64 {
-	return atomic.LoadUint64(&registry.monitorState)
+func (registry *Registry) getMonitorState() uint32 {
+	return atomic.LoadUint32(&registry.monitorState)
 }
 
 /*func (m *MetricsRegistry) setMonitorState(newState uint64) uint64 { // returns the old state
@@ -289,53 +280,54 @@ func (registry *Registry) getMonitorState() uint64 {
 	panic("Shouldn't happened, ever")
 }*/
 
+func (registry *Registry) setMonitorState(newState uint32) uint32 {
+	return atomic.SwapUint32(&registry.monitorState, newState)
+}
+
 func (registry *Registry) startMonitor() {
-	return
-	/*
-		switch m.setMonitorState(monitorState_Starting) {
-		case monitorState_Starting:
-			// setMonitorState doesn't change from monitorStatus_Runningto monitorStatus_Starting
-			// so there's no need to fix the "state" here.
-			return // already starting
-		case monitorState_Started:
-			return // already started
+	if v := registry.setMonitorState(monitorState_Started); v != monitorState_Stopped {
+		registry.setMonitorState(v)
+		return
+	}
+
+	var mem runtime.MemStats
+	pausesLatency := int64(-1)
+
+	go func() {
+		interval := registry.GetDefaultIterateInterval()
+		for {
+			monitorState := registry.getMonitorState()
+			if monitorState != monitorState_Started {
+				break
+			}
+
+			runtime.ReadMemStats(&mem)
+
+			if mem.NumGC != 0 {
+				pausesLatency = int64(mem.PauseTotalNs / uint64(mem.NumGC))
+			} else {
+				pausesLatency = -1
+			}
+
+			time.Sleep(interval)
 		}
 
-		var mem runtime.MemStats
-		pauses_latency := int64(-1)
+		registry.setMonitorState(monitorState_Stopped)
+	}()
 
-		go func() {
-			interval := m.GetDefaultIterateInterval()
-			for m.getMonitorState() == monitorState_Started {
-				runtime.ReadMemStats(&mem)
-
-				if mem.NumGC != 0 {
-					pauses_latency = int64(mem.PauseTotalNs / uint64(mem.NumGC))
-				} else {
-					pauses_latency = -1
-				}
-
-				time.Sleep(interval)
-			}
-			m.setMonitorState(monitorState_Stopped)
-		}()
-
-		GaugeInt64Func(`runtime.memory.alloc.bytes`, Tags{`type`: `total`}, func() int64 { return int64(mem.Alloc) }).SetGCEnabled(false)
-		GaugeInt64Func(`runtime.memory.alloc.bytes`, Tags{`type`: `heap`}, func() int64 { return int64(mem.HeapAlloc) }).SetGCEnabled(false)
-		GaugeInt64Func(`runtime.memory.sys.bytes`, nil, func() int64 { return int64(mem.Sys) }).SetGCEnabled(false)
-		GaugeInt64Func(`runtime.memory.heap_objects.count`, nil, func() int64 { return int64(mem.HeapObjects) }).SetGCEnabled(false)
-		GaugeInt64Func(`runtime.gc.next.bytes`, nil, func() int64 { return int64(mem.NextGC) }).SetGCEnabled(false)
-		GaugeInt64Func(`runtime.gc.pauses.ns`, nil, func() int64 { return int64(mem.PauseTotalNs) }).SetGCEnabled(false)
-		GaugeInt64Func(`runtime.gc.pauses.count`, nil, func() int64 { return int64(mem.NumGC) }).SetGCEnabled(false)
-		GaugeInt64Func(`runtime.gc.pauses.latency.ns`, nil, func() int64 { return pauses_latency }).SetGCEnabled(false)
-		GaugeInt64Func(`runtime.cpu.fraction.e6`, nil, func() int64 { return int64(mem.GCCPUFraction * 1000000) }).SetGCEnabled(false)
-	*/
+	GaugeInt64Func(`runtime.memory.alloc.bytes`, Tags{`type`: `total`}, func() int64 { return int64(mem.Alloc) }).SetGCEnabled(false)
+	GaugeInt64Func(`runtime.memory.alloc.bytes`, Tags{`type`: `heap`}, func() int64 { return int64(mem.HeapAlloc) }).SetGCEnabled(false)
+	GaugeInt64Func(`runtime.memory.sys.bytes`, nil, func() int64 { return int64(mem.Sys) }).SetGCEnabled(false)
+	GaugeInt64Func(`runtime.memory.heap_objects.count`, nil, func() int64 { return int64(mem.HeapObjects) }).SetGCEnabled(false)
+	GaugeInt64Func(`runtime.gc.next.bytes`, nil, func() int64 { return int64(mem.NextGC) }).SetGCEnabled(false)
+	GaugeInt64Func(`runtime.gc.pauses.ns`, nil, func() int64 { return int64(mem.PauseTotalNs) }).SetGCEnabled(false)
+	GaugeInt64Func(`runtime.gc.pauses.count`, nil, func() int64 { return int64(mem.NumGC) }).SetGCEnabled(false)
+	GaugeInt64Func(`runtime.gc.pauses.latency.ns`, nil, func() int64 { return pausesLatency }).SetGCEnabled(false)
+	GaugeInt64Func(`runtime.cpu.fraction.e6`, nil, func() int64 { return int64(mem.GCCPUFraction * 1000000) }).SetGCEnabled(false)
 }
 
 func (registry *Registry) stopMonitor() {
-	return
-
-	//m.setMonitorState(monitorState_Stopping)
+	registry.setMonitorState(monitorState_Stopping)
 }
 
 func (registry *Registry) GC() {
@@ -474,12 +466,14 @@ func init() {
 	registry.storage = atomicmap.New()
 }
 
-func SetDefaultSender(newMetricSender Sender) {
-	registry.SetDefaultSender(newMetricSender)
+// SetSender sets a handler responsible to send metric values to a metrics server (like StatsD)
+func SetSender(newMetricSender Sender) {
+	registry.SetSender(newMetricSender)
 }
 
-func GetDefaultSender() Sender {
-	return registry.GetDefaultSender()
+// GetSender returns the handler responsible to send metric values to a metrics server (like StatsD)
+func GetSender() Sender {
+	return registry.GetSender()
 }
 
 func SetMetricsIterateIntervaler(newMetricsIterateIntervaler IterateIntervaler) {
@@ -528,7 +522,7 @@ func (registry *Registry) Reset() {
 			continue
 		}
 		metric.(Metric).Stop()
-		registry.storage.Unset(metricKey)
+		_ = registry.storage.Unset(metricKey)
 	}
 }
 

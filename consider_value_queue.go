@@ -41,22 +41,35 @@ var (
 func init() {
 	swapConsiderValueQueue()
 
-	considerValueQueueChan = make(chan *considerValueQueueT, 16)
-	go func() {
-		ticker := time.NewTicker(time.Millisecond * 100)
-		for {
-			var queue *considerValueQueueT
-			select {
-			case <-ticker.C:
-				queue = swapConsiderValueQueue()
-				atomic.AddUint32(&considerValueQueueNumber, 1)
-			case newQueue := <-considerValueQueueChan:
-				queue = newQueue
-			}
+	// To do not handle locks in aggregative statistics handlers we just process this handlers
+	// in a single routine. And "queueProcessor" is the function for the routine.
+	go queueProcessor()
+}
 
-			processQueue(queue)
+func queueProcessor() {
+	considerValueQueueChan = make(chan *considerValueQueueT, 16)
+	for {
+		// if we got a panic (inside queueProcessorLoop) then we need to restart
+		queueProcessorLoop()
+	}
+}
+
+func queueProcessorLoop() {
+	defer recoverPanic()
+
+	ticker := time.NewTicker(time.Millisecond * 100)
+	for {
+		var queue *considerValueQueueT
+		select {
+		case <-ticker.C:
+			queue = swapConsiderValueQueue()
+			atomic.AddUint32(&considerValueQueueNumber, 1)
+		case newQueue := <-considerValueQueueChan:
+			queue = newQueue
 		}
-	}()
+
+		processQueue(queue)
+	}
 }
 
 func processQueue(queue *considerValueQueueT) {

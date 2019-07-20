@@ -60,6 +60,9 @@ func newFastTag() *FastTag {
 //
 // This method is supposed to be used to internal needs, only.
 func (tag *FastTag) Release() {
+	if !memoryReuse {
+		return
+	}
 
 	// This check was temporary added only for debugging (to locate and fix one bug in this module)
 	// It negatively affects the performance and should be removed in future (like in >= 2021 year)

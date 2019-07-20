@@ -223,9 +223,9 @@ func testGC(t *testing.T, fn func()) {
 	cleanedGoroutinesCount := runtime.NumGoroutine()
 	//assert.Equal(t, int64(0), iterationHandlers.routinesCount)
 	assert.Equal(t, goroutinesCount, cleanedGoroutinesCount)
-	//assert.Equal(t, memstats.HeapInuse, cleanedMemstats.HeapInuse)
+	assert.True(t, cleanedMemstats.HeapInuse <= memstats.HeapInuse)
 
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 100000; i++ {
 		fn()
 	}
 	GC()
@@ -233,7 +233,9 @@ func testGC(t *testing.T, fn func()) {
 	runtime.GC()
 	runtime.ReadMemStats(&cleanedMemstats)
 
-	//assert.Equal(t, true, (cleanedMemstats.HeapInuse-memstats.HeapInuse)/10000 < 100)
+	if !assert.True(t, (int64(cleanedMemstats.HeapInuse)-int64(memstats.HeapInuse))/100000 < 1) {
+		t.Error(cleanedMemstats.HeapInuse, int64(cleanedMemstats.HeapInuse)-int64(memstats.HeapInuse))
+	}
 
 	memoryReuse = true
 }

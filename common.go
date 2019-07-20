@@ -41,9 +41,6 @@ type common struct {
 	isGCEnabled    uint64
 	uselessCounter uint64
 
-	sender      Sender
-	isSenderSet uint64
-
 	// parent is a pointer to the object of the final implementation of a metric (for example *GaugeFloat64)
 	parent Metric
 
@@ -56,7 +53,6 @@ type common struct {
 
 func (m *common) init(parent Metric, key string, tags AnyTags, getWasUseless func() bool) {
 	m.parent = parent
-	m.SetSender(GetDefaultSender())
 	m.SetGCEnabled(GetDefaultGCEnabled())
 
 	registry.Register(parent, key, tags)
@@ -67,44 +63,6 @@ func (m *common) init(parent Metric, key string, tags AnyTags, getWasUseless fun
 	if GetDefaultIsRunned() {
 		parent.Run(GetDefaultIterateInterval())
 	}
-}
-
-func (m *common) getIsSenderSet() bool {
-	return atomic.LoadUint64(&m.isSenderSet) != 0
-}
-
-// SetSender sets the sender to be used to periodically send metric values (for example to StatsD)
-// On high loaded systems we recommend to use prometheus and a status page with all exported metrics instead of sending
-// metrics to somewhere.
-func (m *common) SetSender(sender Sender) {
-	if m == nil {
-		return
-	}
-	m.Lock()
-	m.sender = sender
-	if m.sender == nil {
-		atomic.StoreUint64(&m.isSenderSet, 0)
-	} else {
-		atomic.StoreUint64(&m.isSenderSet, 1)
-	}
-	m.Unlock()
-}
-
-// GetSender returns the sender (see "Sender" and "SetSender")
-func (m *common) GetSender() Sender {
-	if m == nil {
-		return nil
-	}
-
-	// We don't like to use mutex (they are slow) so we check this way first
-	if !m.getIsSenderSet() {
-		return nil
-	}
-
-	m.Lock()
-	sender := m.sender
-	m.Unlock()
-	return sender
 }
 
 // IsRunning returns if the metric is run()'ed and not Stop()'ed.
@@ -171,7 +129,7 @@ func (m *common) doIterateGC() {
 }
 
 func (m *common) doIterateSender() {
-	sender := m.GetSender()
+	sender := registry.GetSender()
 	if sender == nil {
 		return
 	}
@@ -183,6 +141,7 @@ func (m *common) doIterateSender() {
 // This routines are sending the metric value via sender (see `SetSender`) and GC (to remove the metric if it is not
 // used for a long time).
 func (m *common) Iterate() {
+	defer recoverPanic()
 	m.doIterateGC()
 	m.doIterateSender()
 }

@@ -196,6 +196,7 @@ type commonAggregativeSlicer struct {
 }
 
 func (slicer *commonAggregativeSlicer) Iterate() {
+	defer recoverPanic()
 	slicer.metric.DoSlice()
 }
 func (slicer *commonAggregativeSlicer) GetInterval() time.Duration {
