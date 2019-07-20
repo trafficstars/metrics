@@ -272,6 +272,9 @@ func (tags *FastTags) Each(fn func(k string, v interface{}) bool) {
 	if tags == nil {
 		return
 	}
+	if !tags.isInUse {
+		panic(`An attempt to use a released FastTags`)
+	}
 	for _, tag := range tags.Slice {
 		if !fn(tag.Key, tag.GetValue()) {
 			break
@@ -292,6 +295,9 @@ func (tags *FastTags) ToFastTags() *FastTags {
 func (tags *FastTags) ToMap(fieldMaps ...map[string]interface{}) map[string]interface{} {
 	if tags == nil {
 		return nil
+	}
+	if !tags.isInUse {
+		panic(`An attempt to use a released FastTags`)
 	}
 	fields := map[string]interface{}{}
 	if tags != nil {
@@ -320,6 +326,9 @@ func (tags *FastTags) String() string {
 func (tags *FastTags) WriteAsString(writeStringer interface{ WriteString(string) (int, error) }) {
 	if tags == nil {
 		return
+	}
+	if !tags.isInUse {
+		panic(`An attempt to use a released FastTags`)
 	}
 
 	tags.Sort()
