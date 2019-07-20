@@ -416,7 +416,7 @@ the threshold is reached, then the metrics is `Stop`-ped and the registry's GC w
 removed it from the internal storage.
 
 The check if the metric value have changes is done by an Iterator (see "Iterators"). Default
-interval is 10 seconds (so the metrics should be "useless" for at least 50 seconds
+interval is 1 minute (so the metrics should be "useless" for at least 5 minutes
 to be removed).
 
 To disable the GC for a metric you can call bethod `SetGCEnabled(false)` 
