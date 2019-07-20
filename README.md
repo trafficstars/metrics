@@ -73,7 +73,7 @@ func main() {
     if err != nil {
 		log.Fatal(err)
     }
-    metrics.SetDefaultSender(metricsSender)
+    metrics.SetSender(metricsSender)
 [...]
 }
 ```
