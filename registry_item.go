@@ -31,11 +31,7 @@ func (item *registryItem) GetName() string {
 	return item.name
 }
 func (item *registryItem) GetTags() *FastTags {
-	tags := item.tags.ToFastTags()
-	if tags == nil && defaultTags.Len() != 0 {
-		return &defaultTags
-	}
-	return tags
+	return item.tags.ToFastTags()
 }
 func (item *registryItem) GetKey() []byte {
 	if item == nil {
