@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"fmt"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -55,8 +54,6 @@ func queueProcessor() {
 }
 
 func queueProcessorLoop() {
-	defer recoverPanic()
-
 	ticker := time.NewTicker(time.Millisecond * 100)
 	for {
 		var queue *considerValueQueueT
@@ -73,36 +70,35 @@ func queueProcessorLoop() {
 }
 
 func processQueue(queue *considerValueQueueT) {
-	count := 0
-	var wrotes uint32
+	defer func() {
+		atomic.AddUint32(&considerValueQueuesProcessed, 1)
+		queue.writePointer = 0
+		queue.wrotePointer = 0
+		considerValueQueuePool.Put(queue)
+	}()
+
+	var (
+		count int
+		wrotes uint32
+	)
+
 	for {
 		writes := atomic.LoadUint32(&queue.writePointer)
 		if writes > queueLength {
 			writes = queueLength
 		}
 		wrotes = atomic.LoadUint32(&queue.wrotePointer)
-		if writes == wrotes {
+		if writes == wrotes || wrotes > queueLength {
 			break
 		}
 		runtime.Gosched()
 		count++
-		if count > 10 {
-			time.Sleep(time.Nanosecond * time.Duration(count))
-		}
-		if count > 10000 {
-			panic(fmt.Errorf(`an infinite loop :( : %v %v`, writes, wrotes))
-		}
+		time.Sleep(time.Nanosecond * time.Duration(count))
 	}
 
 	for _, item := range queue.queue[:wrotes] {
 		item.metric.doConsiderValue(item.value)
 	}
-
-	atomic.AddUint32(&considerValueQueuesProcessed, 1)
-
-	queue.writePointer = 0
-	queue.wrotePointer = 0
-	considerValueQueuePool.Put(queue)
 }
 
 var (
