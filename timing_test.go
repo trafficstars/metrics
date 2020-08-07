@@ -56,17 +56,21 @@ func fillStats(t *testing.T, metric interface {
 	Stop()
 	GetValuePointers() *AggregativeValues
 }) {
+	waitForQueues := func() {
+		time.Sleep(time.Millisecond)
+	}
+
 	metric.Run(5 * time.Second)
 	metric.ConsiderValue(time.Nanosecond * 5000)
-	submitConsiderValueQueue(swapConsiderValueQueue())
-	waitUntilAllSubmittedConsiderValueQueuesProcessed()
+	considerValueQueueChan <- swapConsiderValueQueue()
+	waitForQueues()
 
 	assert.Equal(t, uint64(1), metric.GetValuePointers().Total.Count)
 	metric.DoSlice()
 	metric.ConsiderValue(time.Nanosecond * 6000)
 	metric.ConsiderValue(time.Nanosecond * 7000)
-	submitConsiderValueQueue(swapConsiderValueQueue())
-	waitUntilAllSubmittedConsiderValueQueuesProcessed()
+	considerValueQueueChan <- swapConsiderValueQueue()
+	waitForQueues()
 
 	metric.DoSlice()
 	metric.ConsiderValue(time.Nanosecond * 3000)
@@ -129,13 +133,13 @@ func fillStats(t *testing.T, metric interface {
 	metric.ConsiderValue(time.Nanosecond * 4000)
 	metric.ConsiderValue(time.Nanosecond * 6000)
 	metric.ConsiderValue(time.Nanosecond * 5000)
-	submitConsiderValueQueue(swapConsiderValueQueue())
-	waitUntilAllSubmittedConsiderValueQueuesProcessed()
+	considerValueQueueChan <- swapConsiderValueQueue()
+	waitForQueues()
 
 	metric.DoSlice()
 	metric.ConsiderValue(time.Nanosecond * 500000)
-	submitConsiderValueQueue(swapConsiderValueQueue())
-	waitUntilAllSubmittedConsiderValueQueuesProcessed()
+	considerValueQueueChan <- swapConsiderValueQueue()
+	waitForQueues()
 
 	metric.Stop()
 }
@@ -208,10 +212,6 @@ func testGC(t *testing.T, fn func()) {
 	}
 	GC()
 	runtime.GC()
-	/*if iterationHandlers.routinesCount > 0 {
-		t.Errorf(`iterationHandlers.routinesCount == %v\n`, iterationHandlers.routinesCount)
-		t.Errorf(`iterationHandlers.m.Keys() == %v`, iterationHandlers.m.Keys())
-	}*/
 	var memstats, cleanedMemstats runtime.MemStats
 	goroutinesCount := runtime.NumGoroutine()
 	runtime.GC()
@@ -229,7 +229,6 @@ func testGC(t *testing.T, fn func()) {
 		fn()
 	}
 	GC()
-	//assert.Equal(t, int64(0), iterationHandlers.routinesCount)
 	runtime.GC()
 	runtime.ReadMemStats(&cleanedMemstats)
 

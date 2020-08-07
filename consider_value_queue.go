@@ -4,12 +4,12 @@ import (
 	"runtime"
 	"sync"
 	"sync/atomic"
-	"time"
 	"unsafe"
 )
 
 const (
-	queueLength = 64
+	queueLength 		= 1 << 6
+	queueChannelLength 	= 1 << 6
 )
 
 type considerValueQueueItem struct {
@@ -18,14 +18,19 @@ type considerValueQueueItem struct {
 }
 
 type considerValueQueueT struct {
-	writePointer uint32
-	wrotePointer uint32
+	writePos     uint32 // index of last added item
 	queue        [queueLength]*considerValueQueueItem
 }
 
+func (s *considerValueQueueT) release() {
+	s.writePos = 0
+	considerValueQueuePool.Put(s)
+}
+
 var (
-	considerValueQueue     = &considerValueQueueT{}
-	considerValueQueuePool = sync.Pool{
+	considerValueQueue           *considerValueQueueT
+	considerValueQueueChan       chan *considerValueQueueT
+	considerValueQueuePool       = sync.Pool{
 		New: func() interface{} {
 			newConsiderValueQueue := &considerValueQueueT{}
 			for idx := range considerValueQueue.queue {
@@ -34,19 +39,19 @@ var (
 			return newConsiderValueQueue
 		},
 	}
-	considerValueQueueChan chan *considerValueQueueT
 )
 
 func init() {
+	// initialize first considerValueQueue from pool
 	swapConsiderValueQueue()
 
-	// To do not handle locks in aggregative statistics handlers we just process this handlers
+	// To do not handle locks in aggregated statistics handlers we just process this handlers
 	// in a single routine. And "queueProcessor" is the function for the routine.
 	go queueProcessor()
 }
 
 func queueProcessor() {
-	considerValueQueueChan = make(chan *considerValueQueueT, 16)
+	considerValueQueueChan = make(chan *considerValueQueueT, queueChannelLength)
 	for {
 		// if we got a panic (inside queueProcessorLoop) then we need to restart
 		queueProcessorLoop()
@@ -54,104 +59,67 @@ func queueProcessor() {
 }
 
 func queueProcessorLoop() {
-	ticker := time.NewTicker(time.Millisecond * 100)
-	for {
-		var queue *considerValueQueueT
-		select {
-		case <-ticker.C:
-			queue = swapConsiderValueQueue()
-			atomic.AddUint32(&considerValueQueueNumber, 1)
-		case newQueue := <-considerValueQueueChan:
-			queue = newQueue
-		}
+	defer recoverPanic()
 
-		processQueue(queue)
+	for {
+		select {
+		case queue := <-considerValueQueueChan:
+			processQueue(queue)
+		}
 	}
 }
 
 func processQueue(queue *considerValueQueueT) {
-	defer func() {
-		atomic.AddUint32(&considerValueQueuesProcessed, 1)
-		queue.writePointer = 0
-		queue.wrotePointer = 0
-		considerValueQueuePool.Put(queue)
-	}()
-
-	var (
-		count int
-		wrotes uint32
-	)
-
-	for {
-		writes := atomic.LoadUint32(&queue.writePointer)
-		if writes > queueLength {
-			writes = queueLength
-		}
-		wrotes = atomic.LoadUint32(&queue.wrotePointer)
-		if writes == wrotes || wrotes > queueLength {
-			break
-		}
-		runtime.Gosched()
-		count++
-		time.Sleep(time.Nanosecond * time.Duration(count))
-	}
-
-	for _, item := range queue.queue[:wrotes] {
+	// we need to put queue back to the pool after work is done
+	defer queue.release()
+	for _, item := range queue.queue {
 		item.metric.doConsiderValue(item.value)
 	}
 }
 
-var (
-	considerValueQueueNumber     uint32
-	considerValueQueuesProcessed uint32
-)
-
-func submitConsiderValueQueue(queue *considerValueQueueT) {
-	atomic.AddUint32(&considerValueQueueNumber, 1)
-	considerValueQueueChan <- queue
-}
-
-func waitUntilAllSubmittedConsiderValueQueuesProcessed() {
-	for {
-		if atomic.LoadUint32(&considerValueQueueNumber) == atomic.LoadUint32(&considerValueQueuesProcessed) {
-			break
-		}
-		//fmt.Println(atomic.LoadUint32(&considerValueQueueNumber), atomic.LoadUint32(&considerValueQueuesProcessed))
-		runtime.Gosched()
-	}
-}
-
+// loadConsiderValueQueue atomically loads current queue
 func loadConsiderValueQueue() *considerValueQueueT {
-	return (*considerValueQueueT)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&considerValueQueue))))
+	return (*considerValueQueueT)(atomic.LoadPointer(
+		(*unsafe.Pointer)((unsafe.Pointer)(&considerValueQueue))),
+	)
 }
 
+// swapConsiderValueQueue creates a new queue from pool and atomically replaces current queue with it
 func swapConsiderValueQueue() *considerValueQueueT {
 	newConsiderValueQueue := considerValueQueuePool.Get().(*considerValueQueueT)
-	return (*considerValueQueueT)(atomic.SwapPointer((*unsafe.Pointer)((unsafe.Pointer)(&considerValueQueue)), (unsafe.Pointer)(newConsiderValueQueue)))
+	return (*considerValueQueueT)(
+		atomic.SwapPointer(
+			(*unsafe.Pointer)((unsafe.Pointer)(&considerValueQueue)),
+			(unsafe.Pointer)(newConsiderValueQueue)),
+	)
 }
 
 func enqueueConsiderValue(metric *commonAggregative, value float64) {
+	// load current queue
 	queue := loadConsiderValueQueue()
-	idx := atomic.AddUint32(&queue.writePointer, 1) - 1
-	if idx == queueLength-1 {
-		anotherQueue := swapConsiderValueQueue()
-		if anotherQueue != queue {
-			submitConsiderValueQueue(anotherQueue)
-		}
-	} else if idx == queueLength {
+
+	// get write position in queue
+	idx := atomic.AddUint32(&queue.writePos, 1)
+	switch {
+	case idx == queueLength:
+		// this is the last position in queue, we will put data into it
+		// since there is no space left for new items, we create new queue
+		swapConsiderValueQueue()
+	case idx > queueLength:
 		runtime.Gosched()
 		enqueueConsiderValue(metric, value)
 		return
-	} else if idx > queueLength {
-		time.Sleep(time.Microsecond)
-		enqueueConsiderValue(metric, value)
-		return
+	default:
+		// queue.writePointer < queueLength
+		// normal operation, we write item to queue
 	}
-	item := queue.queue[idx]
+
+	item := queue.queue[idx-1]
 	item.metric = metric
 	item.value = value
-	wrote := atomic.AddUint32(&queue.wrotePointer, 1)
-	if wrote == queueLength {
-		submitConsiderValueQueue(queue)
+
+	// if we just wrote last item in queue, we should schedule for processing
+	if idx == queueLength {
+		considerValueQueueChan <- queue
 	}
 }
