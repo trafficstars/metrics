@@ -119,7 +119,7 @@ func (iterationHandler *iterationHandler) Remove(removeIterator iterator) (resul
 
 	// len(iterationHandler.iterators) > 1
 
-	leftIterators := make([]iterator, 0, len(iterationHandler.iterators)-1)
+	leftIterators := make([]iterator, 0, len(iterationHandler.iterators))
 	for _, curIterator := range iterationHandler.iterators {
 		if curIterator == removeIterator {
 			continue
