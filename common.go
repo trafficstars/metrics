@@ -191,8 +191,8 @@ func (m *common) Stop() {
 func (m *common) MarshalJSON() ([]byte, error) {
 	nameJSON, _ := json.Marshal(m.name)
 	descriptionJSON, _ := json.Marshal(m.description)
-	tagsJSON, _ := json.Marshal(string(m.tags.String()))
-	typeJSON, _ := json.Marshal(string(m.GetType()))
+	tagsJSON, _ := json.Marshal(m.tags.String())
+	typeJSON, _ := json.Marshal(m.GetType().String())
 	value := m.GetFloat64()
 
 	metricJSON := fmt.Sprintf(`{"name":%s,"tags":%s,"value":%v,"description":%s,"type":%s}`,

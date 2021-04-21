@@ -394,7 +394,7 @@ func (metric *commonAggregative) MarshalJSON() ([]byte, error) {
 	nameJSON, _ := json.Marshal(metric.name)
 	descriptionJSON, _ := json.Marshal(metric.description)
 	tagsJSON, _ := json.Marshal(metric.tags.String())
-	typeJSON, _ := json.Marshal(string(metric.GetType()))
+	typeJSON, _ := json.Marshal(metric.GetType().String())
 
 	valueJSON := `{` + strings.Join(jsonValues, `,`) + `}`
 

@@ -21,7 +21,7 @@ func recoverPanic() {
 	}
 
 	buf := make([]byte, 1<<16)
-	stack := runtime.Stack(buf, true)
+	l := runtime.Stack(buf, true)
 
-	_, _ = fmt.Fprintf(os.Stderr, "[panic] %s\n%s\n", err, string(stack))
+	_, _ = fmt.Fprintf(os.Stderr, "[panic] %s\n%s\n", err, string(buf[:l]))
 }

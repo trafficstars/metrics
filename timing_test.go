@@ -57,7 +57,7 @@ func fillStats(t *testing.T, metric interface {
 	GetValuePointers() *AggregativeValues
 }) {
 	waitForQueues := func() {
-		time.Sleep(time.Millisecond)
+		runtime.Gosched()
 	}
 
 	metric.Run(5 * time.Second)

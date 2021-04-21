@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	queueLength 		= 1 << 6
-	queueChannelLength 	= 1 << 6
+	queueLength        = 1 << 6
+	queueChannelLength = 1 << 6
 )
 
 type considerValueQueueItem struct {
@@ -18,8 +18,8 @@ type considerValueQueueItem struct {
 }
 
 type considerValueQueueT struct {
-	writePos     uint32 // index of last added item
-	queue        [queueLength]*considerValueQueueItem
+	writePos uint32 // index of last added item
+	queue    [queueLength]*considerValueQueueItem
 }
 
 func (s *considerValueQueueT) release() {
@@ -28,9 +28,9 @@ func (s *considerValueQueueT) release() {
 }
 
 var (
-	considerValueQueue           *considerValueQueueT
-	considerValueQueueChan       chan *considerValueQueueT
-	considerValueQueuePool       = sync.Pool{
+	considerValueQueue     *considerValueQueueT
+	considerValueQueueChan chan *considerValueQueueT
+	considerValueQueuePool = sync.Pool{
 		New: func() interface{} {
 			newConsiderValueQueue := &considerValueQueueT{}
 			for idx := range considerValueQueue.queue {
