@@ -353,16 +353,14 @@ func (v *AggregativeValue) String() string {
 			v.Sum.Get(),
 		)
 	}
-	percentiles := v.AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
-	return fmt.Sprintf(`{"count":%d,"min":%g,"per1":%g,"per10":%g,"per50":%g,"avg":%g,"per90":%g,"per99":%g,"max":%g,"sum":%g}`,
+	percentiles := v.AggregativeStatistics.GetPercentiles([]float64{0.5, 0.9, 0.99})
+	return fmt.Sprintf(`{"count":%d,"min":%g,"per50":%g,"avg":%g,"per90":%g,"per99":%g,"max":%g,"sum":%g}`,
 		atomic.LoadUint64(&v.Count),
 		v.Min.Get(),
 		*percentiles[0],
+		v.Avg.Get(),
 		*percentiles[1],
 		*percentiles[2],
-		v.Avg.Get(),
-		*percentiles[3],
-		*percentiles[4],
 		v.Max.Get(),
 		v.Sum.Get(),
 	)
@@ -425,12 +423,10 @@ func (m *commonAggregative) Send(sender Sender) {
 		if data.AggregativeStatistics == nil {
 			return
 		}
-		percentiles := data.AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
-		sender.SendFloat64(m.parent, baseKey+`per1`, *percentiles[0])
-		sender.SendFloat64(m.parent, baseKey+`per10`, *percentiles[1])
-		sender.SendFloat64(m.parent, baseKey+`per50`, *percentiles[2])
-		sender.SendFloat64(m.parent, baseKey+`per90`, *percentiles[3])
-		sender.SendFloat64(m.parent, baseKey+`per99`, *percentiles[4])
+		percentiles := data.AggregativeStatistics.GetPercentiles([]float64{0.5, 0.9, 0.99})
+		sender.SendFloat64(m.parent, baseKey+`per50`, *percentiles[0])
+		sender.SendFloat64(m.parent, baseKey+`per90`, *percentiles[1])
+		sender.SendFloat64(m.parent, baseKey+`per99`, *percentiles[2])
 	}
 
 	values := m.data

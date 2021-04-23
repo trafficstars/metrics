@@ -60,8 +60,6 @@ type aggregativeStatisticsFlow struct {
 
 	locker Spinlock
 
-	Per1  float64
-	Per10 float64
 	Per50 float64
 	Per90 float64
 	Per99 float64
@@ -69,16 +67,12 @@ type aggregativeStatisticsFlow struct {
 
 // GetPercentile returns a percentile value for a given percentile (see https://en.wikipedia.org/wiki/Percentile).
 //
-// It returns nil if the percentile is not from the list: 0.01, 0.1, 0.5, 0.9, 0.99.
+// It returns nil if the percentile is not from the list: 0.5, 0.9, 0.99.
 func (s *aggregativeStatisticsFlow) GetPercentile(percentile float64) *float64 {
 	if s == nil {
 		return nil
 	}
 	switch percentile {
-	case 0.01:
-		return &s.Per1
-	case 0.1:
-		return &s.Per10
 	case 0.5:
 		return &s.Per50
 	case 0.9:
@@ -112,16 +106,12 @@ func (s *aggregativeStatisticsFlow) considerValue(v float64) {
 	s.tickID++
 
 	if s.tickID == 1 {
-		s.Per1 = v
-		s.Per10 = v
 		s.Per50 = v
 		s.Per90 = v
 		s.Per99 = v
 		return
 	}
 
-	s.Per1 = guessPercentileValue(s.Per1, v, s.tickID, 0.01)
-	s.Per10 = guessPercentileValue(s.Per10, v, s.tickID, 0.1)
 	s.Per50 = guessPercentileValue(s.Per50, v, s.tickID, 0.5)
 	s.Per90 = guessPercentileValue(s.Per90, v, s.tickID, 0.9)
 	s.Per99 = guessPercentileValue(s.Per99, v, s.tickID, 0.99)
@@ -138,8 +128,6 @@ func (s *aggregativeStatisticsFlow) ConsiderValue(v float64) {
 // so all aggregative values (avg, min, max, ...) will be equal to the value
 func (s *aggregativeStatisticsFlow) Set(value float64) {
 	s.locker.Lock()
-	s.Per1 = value
-	s.Per10 = value
 	s.Per50 = value
 	s.Per90 = value
 	s.Per99 = value
@@ -159,8 +147,6 @@ func (s *aggregativeStatisticsFlow) MergeStatistics(oldSI AggregativeStatistics)
 		return
 	}
 
-	s.Per1 = (s.Per1*float64(s.tickID) + oldS.Per1*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID)
-	s.Per10 = (s.Per10*float64(s.tickID) + oldS.Per10*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID)
 	s.Per50 = (s.Per50*float64(s.tickID) + oldS.Per50*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID)
 	s.Per90 = (s.Per90*float64(s.tickID) + oldS.Per90*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID)
 	s.Per99 = (s.Per99*float64(s.tickID) + oldS.Per99*float64(oldS.tickID)) / float64(s.tickID+oldS.tickID)

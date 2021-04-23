@@ -62,7 +62,7 @@ func BenchmarkGetPercentilesFlow(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.considerValue(float64(i))
-		m.GetValuePointers().Total.AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
+		m.GetValuePointers().Total.AggregativeStatistics.GetPercentiles([]float64{0.5, 0.9, 0.99})
 	}
 }
 
@@ -107,7 +107,7 @@ func BenchmarkGetPercentilesBuffered(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.considerValue(float64(i))
-		m.GetValuePointers().Total.AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
+		m.GetValuePointers().Total.AggregativeStatistics.GetPercentiles([]float64{0.5, 0.9, 0.99})
 	}
 }
 

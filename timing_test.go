@@ -15,7 +15,7 @@ const (
 	permittedDeviation = 1 / (1 - 0.99) / iterationsRequiredPerSecond
 )
 
-func checkPercentile(t *testing.T, percentile float64) float64 {
+func checkPercentile(percentile float64) float64 {
 	values := []float64{}
 
 	for i := 0; i < valuesAmount; i++ {
@@ -39,8 +39,8 @@ func checkPercentile(t *testing.T, percentile float64) float64 {
 }
 
 func TestGuessPercentile(t *testing.T) {
-	for _, percentile := range []float64{0.01, 0.1, 0.5, 0.9, 0.99} {
-		resultPercentile := checkPercentile(t, percentile)
+	for _, percentile := range []float64{0.5, 0.9, 0.99} {
+		resultPercentile := checkPercentile(percentile)
 		oldV := percentile / (1 - percentile)
 		newV := resultPercentile / (1 - resultPercentile)
 		if newV/oldV > (1+permittedDeviation) || oldV/newV > (1+permittedDeviation) {
