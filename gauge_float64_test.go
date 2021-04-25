@@ -6,9 +6,12 @@ import (
 )
 
 func TestGaugeFloat64GC(t *testing.T) {
+	r := New()
+	defer r.Reset()
+	r.SetDefaultIsRan(false)
+	r.SetDefaultGCEnabled(false)
 	testGC(t, func() {
-		metric := GaugeFloat64(`test_gc`, nil)
-		metric.Stop()
+		r.GaugeFloat64(`test_gc`, nil)
 	})
 }
 
@@ -25,6 +28,6 @@ func BenchmarkNewGaugeFloat64(b *testing.B) {
 }
 
 func TestMetricInterfaceOnGaugeFloat64(t *testing.T) {
-	m := newMetricGaugeFloat64(``, nil)
+	m := registry.newMetricGaugeFloat64(``, nil)
 	checkForInfiniteRecursion(m)
 }

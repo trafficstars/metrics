@@ -11,10 +11,10 @@ type commonFloat64 struct {
 	valuePtr      AtomicFloat64Interface
 }
 
-func (m *commonFloat64) init(parent Metric, key string, tags AnyTags) {
+func (m *commonFloat64) init(r *Registry, parent Metric, key string, tags AnyTags) {
 	value := AtomicFloat64(0)
 	m.valuePtr = &value
-	m.common.init(parent, key, tags, func() bool { return m.wasUseless() })
+	m.common.init(r, parent, key, tags, func() bool { return m.wasUseless() })
 }
 
 // Add adds (+) the value of "delta" to the internal value and returns the result

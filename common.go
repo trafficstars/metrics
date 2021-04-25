@@ -3,7 +3,6 @@ package metrics
 import (
 	"encoding/json"
 	"fmt"
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -26,7 +25,6 @@ type Sender interface {
 type common struct {
 	registryItem // any metric could be saved into the registry, so include "registryItem"
 
-	sync.Mutex
 	running uint64
 
 	// interval in the interval to be used to:
@@ -51,16 +49,22 @@ type common struct {
 	getWasUseless func() bool
 }
 
-func (m *common) init(parent Metric, key string, tags AnyTags, getWasUseless func() bool) {
+func (m *common) init(r *Registry, parent Metric, key string, tags AnyTags, getWasUseless func() bool) {
 	m.parent = parent
 	m.SetGCEnabled(GetDefaultGCEnabled())
 
-	registry.Register(parent, key, tags)
+	err := r.Register(parent, key, tags)
+	if err != nil {
+		// TODO: process the error
+	}
 
 	m.getWasUseless = getWasUseless
-	m.registryItem.init(parent, key)
+	m.registryItem.init(r, parent, key)
 
-	if GetDefaultIsRunned() {
+	if r.GetDefaultIsRan() {
+		if m.running != 0 {
+			panic(m.running)
+		}
 		parent.Run(GetDefaultIterateInterval())
 	}
 }
@@ -129,7 +133,7 @@ func (m *common) doIterateGC() {
 }
 
 func (m *common) doIterateSender() {
-	sender := registry.GetSender()
+	sender := m.registry.GetSender()
 	if sender == nil {
 		return
 	}
@@ -163,9 +167,9 @@ func (m *common) Run(interval time.Duration) {
 	if m == nil {
 		return
 	}
-	m.Lock()
+	m.lock()
+	defer m.unlock()
 	m.run(interval)
-	m.Unlock()
 }
 
 func (m *common) stop() {
@@ -182,9 +186,9 @@ func (m *common) Stop() {
 	if m == nil {
 		return
 	}
-	m.Lock()
+	m.lock()
+	defer m.unlock()
 	m.stop()
-	m.Unlock()
 }
 
 // MarshalJSON returns JSON representation of a metric for external monitoring systems

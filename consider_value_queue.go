@@ -18,19 +18,22 @@ type considerValueQueueItem struct {
 }
 
 type considerValueQueueT struct {
-	writePos uint32 // index of last added item
-	queue    [queueLength]*considerValueQueueItem
+	writePos   uint64 // index of next write
+	wroteItems uint64
+	queue      [queueLength]*considerValueQueueItem
 }
 
 func (s *considerValueQueueT) release() {
 	s.writePos = 0
+	s.wroteItems = 0
 	considerValueQueuePool.Put(s)
 }
 
 var (
-	considerValueQueue     *considerValueQueueT
-	considerValueQueueChan chan *considerValueQueueT
-	considerValueQueuePool = sync.Pool{
+	considerValueQueue      *considerValueQueueT
+	considerValueQueueChan  chan *considerValueQueueT
+	considerValueQueueCount uint64
+	considerValueQueuePool  = sync.Pool{
 		New: func() interface{} {
 			newConsiderValueQueue := &considerValueQueueT{}
 			for idx := range considerValueQueue.queue {
@@ -47,11 +50,11 @@ func init() {
 
 	// To do not handle locks in aggregated statistics handlers we just process this handlers
 	// in a single routine. And "queueProcessor" is the function for the routine.
+	considerValueQueueChan = make(chan *considerValueQueueT, queueChannelLength)
 	go queueProcessor()
 }
 
 func queueProcessor() {
-	considerValueQueueChan = make(chan *considerValueQueueT, queueChannelLength)
 	for {
 		// if we got a panic (inside queueProcessorLoop) then we need to restart
 		queueProcessorLoop()
@@ -62,17 +65,15 @@ func queueProcessorLoop() {
 	defer recoverPanic()
 
 	for {
-		select {
-		case queue := <-considerValueQueueChan:
-			processQueue(queue)
-		}
+		processQueue(<-considerValueQueueChan)
+		atomic.AddUint64(&considerValueQueueCount, 1)
 	}
 }
 
 func processQueue(queue *considerValueQueueT) {
 	// we need to put queue back to the pool after work is done
 	defer queue.release()
-	for _, item := range queue.queue {
+	for _, item := range queue.queue[:queue.wroteItems] {
 		item.metric.doConsiderValue(item.value)
 	}
 }
@@ -95,11 +96,12 @@ func swapConsiderValueQueue() *considerValueQueueT {
 }
 
 func enqueueConsiderValue(metric *commonAggregative, value float64) {
+retry:
 	// load current queue
 	queue := loadConsiderValueQueue()
 
 	// get write position in queue
-	idx := atomic.AddUint32(&queue.writePos, 1)
+	idx := atomic.AddUint64(&queue.writePos, 1)
 	switch {
 	case idx == queueLength:
 		// this is the last position in queue, we will put data into it
@@ -107,8 +109,7 @@ func enqueueConsiderValue(metric *commonAggregative, value float64) {
 		swapConsiderValueQueue()
 	case idx > queueLength:
 		runtime.Gosched()
-		enqueueConsiderValue(metric, value)
-		return
+		goto retry
 	default:
 		// queue.writePointer < queueLength
 		// normal operation, we write item to queue
@@ -119,7 +120,8 @@ func enqueueConsiderValue(metric *commonAggregative, value float64) {
 	item.value = value
 
 	// if we just wrote last item in queue, we should schedule for processing
-	if idx == queueLength {
+	wIdx := atomic.AddUint64(&queue.wroteItems, 1)
+	if wIdx == queueLength {
 		considerValueQueueChan <- queue
 	}
 }

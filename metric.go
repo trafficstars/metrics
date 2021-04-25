@@ -17,6 +17,13 @@ type Metric interface {
 	GetFloat64() float64
 	IsRunning() bool
 	Release()
+	IsGCEnabled() bool
 	SetGCEnabled(bool)
 	GetTag(string) interface{}
+	Registry() *Registry
+
+	run(time.Duration)
+	stop()
+	lock()
+	unlock()
 }

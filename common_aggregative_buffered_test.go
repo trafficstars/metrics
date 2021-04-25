@@ -33,9 +33,11 @@ func (m *commonAggregativeFlowTest) GetType() Type {
 }
 
 func BenchmarkConsiderValueFlow(b *testing.B) {
+	initAggrBufTests()
 	Reset()
+	defer Reset()
 	m := commonAggregativeFlowTest{}
-	m.init(&m, `test`, nil)
+	m.init(testRegistry, &m, `test`, nil)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.considerValue(1000000)
@@ -43,9 +45,11 @@ func BenchmarkConsiderValueFlow(b *testing.B) {
 }
 
 func BenchmarkDoSliceFlow(b *testing.B) {
+	initAggrBufTests()
 	Reset()
+	defer Reset()
 	m := commonAggregativeFlowTest{}
-	m.init(&m, `test`, nil)
+	m.init(testRegistry, &m, `test`, nil)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.DoSlice()
@@ -57,12 +61,14 @@ var (
 )
 
 func BenchmarkGetPercentilesFlow(b *testing.B) {
+	initAggrBufTests()
 	Reset()
+	defer Reset()
 	m := testMFlow
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.considerValue(float64(i))
-		m.GetValuePointers().Total.AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
+		m.GetValuePointers().Total().AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
 	}
 }
 
@@ -78,9 +84,11 @@ func (m *commonAggregativeBufferedTest) GetType() Type {
 }
 
 func BenchmarkConsiderValueBuffered(b *testing.B) {
+	initAggrBufTests()
 	Reset()
+	defer Reset()
 	m := commonAggregativeBufferedTest{}
-	m.init(&m, `test`, nil)
+	m.init(testRegistry, &m, `test`, nil)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.considerValue(1000000)
@@ -88,9 +96,11 @@ func BenchmarkConsiderValueBuffered(b *testing.B) {
 }
 
 func BenchmarkDoSliceBuffered(b *testing.B) {
+	initAggrBufTests()
 	Reset()
+	defer Reset()
 	m := commonAggregativeBufferedTest{}
-	m.init(&m, `test`, nil)
+	m.init(testRegistry, &m, `test`, nil)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.DoSlice()
@@ -102,12 +112,14 @@ var (
 )
 
 func BenchmarkGetPercentilesBuffered(b *testing.B) {
+	initAggrBufTests()
 	Reset()
+	defer Reset()
 	m := testMBuffered
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.considerValue(float64(i))
-		m.GetValuePointers().Total.AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
+		m.GetValuePointers().Total().AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
 	}
 }
 
@@ -124,8 +136,9 @@ func (m *commonAggregativeSimpleTest) GetType() Type {
 
 func BenchmarkConsiderValueSimple(b *testing.B) {
 	Reset()
+	defer Reset()
 	m := commonAggregativeSimpleTest{}
-	m.init(&m, `test`, nil)
+	m.init(testRegistry, &m, `test`, nil)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.considerValue(1000000)
@@ -133,13 +146,14 @@ func BenchmarkConsiderValueSimple(b *testing.B) {
 }
 
 var (
-	testMSimple = &commonAggregativeSimpleTest{}
+	testRegistry = New()
+	testMSimple  = &commonAggregativeSimpleTest{}
 )
 
-func init() {
+func initAggrBufTests() {
 	{
 		m := testMBuffered
-		m.init(m, `test`, nil)
+		m.init(testRegistry, m, `test`, nil)
 		for i := uint(0); i < bufferSize; i++ {
 			m.considerValue(float64(i))
 		}
@@ -147,7 +161,7 @@ func init() {
 
 	{
 		m := testMFlow
-		m.init(m, `test`, nil)
+		m.init(testRegistry, m, `test`, nil)
 		for i := uint(0); i < bufferSize; i++ {
 			m.considerValue(float64(i))
 		}
@@ -155,7 +169,7 @@ func init() {
 
 	{
 		m := testMSimple
-		m.init(m, `test`, nil)
+		m.init(testRegistry, m, `test`, nil)
 		for i := uint(0); i < bufferSize; i++ {
 			m.considerValue(float64(i))
 		}

@@ -60,8 +60,8 @@ type commonAggregativeBuffered struct {
 	commonAggregative
 }
 
-func (m *commonAggregativeBuffered) init(parent Metric, key string, tags AnyTags) {
-	m.commonAggregative.init(parent, key, tags)
+func (m *commonAggregativeBuffered) init(r *Registry, parent Metric, key string, tags AnyTags) {
+	m.commonAggregative.init(r, parent, key, tags)
 }
 
 // NewAggregativeStatistics returns a "Buffered" (see "Buffered" in README.md) implementation of AggregativeStatistics.
@@ -123,6 +123,7 @@ func init() {
 	}
 }
 
+//go:norace
 func randIntn(n uint32) uint32 {
 	// We don't require atomicity here because corrupted number is good enough for us, too
 	randIntnPosition = 3948558707 * (randIntnPosition + 1948560947)

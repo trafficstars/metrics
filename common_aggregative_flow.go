@@ -16,8 +16,8 @@ type commonAggregativeFlow struct {
 	commonAggregative
 }
 
-func (m *commonAggregativeFlow) init(parent Metric, key string, tags AnyTags) {
-	m.commonAggregative.init(parent, key, tags)
+func (m *commonAggregativeFlow) init(r *Registry, parent Metric, key string, tags AnyTags) {
+	m.commonAggregative.init(r, parent, key, tags)
 }
 
 // NewAggregativeStatistics returns a "Flow" (see "Flow" in README.md) implementation of AggregativeStatistics.
@@ -48,9 +48,9 @@ func guessPercentileValue(curValue, newValue float64, count uint64, perc float64
 	}
 
 	if requireGreater {
-		inertness *= float64(perc)
+		inertness *= perc
 	} else {
-		inertness *= float64(1 - perc)
+		inertness *= 1 - perc
 	}
 	return (curValue*inertness + newValue) / (inertness + 1)
 }

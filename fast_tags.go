@@ -60,7 +60,7 @@ func newFastTag() *FastTag {
 //
 // This method is supposed to be used to internal needs, only.
 func (tag *FastTag) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
 
@@ -153,7 +153,7 @@ func NewFastTags() AnyTags {
 //
 // See "Tags" in README.md
 func (tags *FastTags) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
 	if tags == nil {

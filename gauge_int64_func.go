@@ -5,28 +5,32 @@ type MetricGaugeInt64Func struct {
 	fn func() int64
 }
 
-func newMetricGaugeInt64Func(key string, tags AnyTags, fn func() int64) *MetricGaugeInt64Func {
+func (r *Registry) newMetricGaugeInt64Func(key string, tags AnyTags, fn func() int64) *MetricGaugeInt64Func {
 	metric := metricGaugeInt64FuncPool.Get().(*MetricGaugeInt64Func)
-	metric.init(key, tags, fn)
+	metric.init(r, key, tags, fn)
 	return metric
 }
 
-func (m *MetricGaugeInt64Func) init(key string, tags AnyTags, fn func() int64) {
+func (m *MetricGaugeInt64Func) init(r *Registry, key string, tags AnyTags, fn func() int64) {
 	m.fn = fn
-	m.common.init(m, key, tags, func() bool { return m.wasUseless() })
+	m.common.init(r, m, key, tags, func() bool { return m.wasUseless() })
 }
 
 func GaugeInt64Func(key string, tags AnyTags, fn func() int64) *MetricGaugeInt64Func {
+	return registry.GaugeInt64Func(key, tags, fn)
+}
+
+func (r *Registry) GaugeInt64Func(key string, tags AnyTags, fn func() int64) *MetricGaugeInt64Func {
 	if IsDisabled() {
 		return (*MetricGaugeInt64Func)(nil)
 	}
 
-	m := registry.Get(TypeGaugeInt64Func, key, tags)
+	m := r.Get(TypeGaugeInt64Func, key, tags)
 	if m != nil {
 		return m.(*MetricGaugeInt64Func)
 	}
 
-	return newMetricGaugeInt64Func(key, tags, fn)
+	return r.newMetricGaugeInt64Func(key, tags, fn)
 }
 
 func (m *MetricGaugeInt64Func) GetType() Type {
