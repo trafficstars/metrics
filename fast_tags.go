@@ -191,7 +191,7 @@ func (tags *FastTags) Swap(i, j int) {
 // Sort sorts tags by keys (using Swap, Less and Len)
 func (tags *FastTags) Sort() {
 	// We use our-own implementation of sorts without interfaces which  doesn't require a memory allocation
-	if len(tags.Slice) < 16 {
+	if len(tags.Slice) <= 8 {
 		// On a small slice "Bubble" is really not that bad (k*O(n*n) with a small "k").
 		tags.sortBubble()
 	} else {

@@ -571,7 +571,6 @@ func (r *AggregativeValue) MergeData(e *AggregativeValue) {
 		r.Max.SetFast(eMax)
 	}
 	r.Sum.AddFast(eSum)
-	fmt.Printf("%f\n", r.Sum.Get())
 
 	addCount := eCount
 	addValue := e.Avg.Get()

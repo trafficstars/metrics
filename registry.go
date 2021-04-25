@@ -24,7 +24,7 @@ const (
 	monitorState_Stopping = 2
 )
 
-var defaultFlowPercentiles = []float64{0.11, 0.1, 0.5, 0.9, 0.99}
+var defaultFlowPercentiles = []float64{0.01, 0.1, 0.5, 0.9, 0.99}
 
 var (
 	defaultTags FastTags
@@ -563,7 +563,7 @@ func SetHiddenTags(newRawHiddenTags HiddenTags) {
 	registry.SetHiddenTags(newRawHiddenTags)
 }
 
-func SetFlowPercentiles(p []float64) {
+func SetDefaultPercentiles(p []float64) {
 	registry.SetDefaultPercentiles(p)
 }
 

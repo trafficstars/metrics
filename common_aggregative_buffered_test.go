@@ -33,11 +33,13 @@ func (m *commonAggregativeFlowTest) GetType() Type {
 }
 
 func BenchmarkConsiderValueFlow(b *testing.B) {
-	initAggrBufTests()
-	Reset()
-	defer Reset()
-	m := commonAggregativeFlowTest{}
-	m.init(testRegistry, &m, `test`, nil)
+	testRegistry := New()
+	defer testRegistry.Reset()
+	m := &commonAggregativeFlowTest{}
+	m.init(testRegistry, m, `test`, nil)
+	for i := uint(0); i < bufferSize; i++ {
+		m.considerValue(float64(i))
+	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.considerValue(1000000)
@@ -45,26 +47,27 @@ func BenchmarkConsiderValueFlow(b *testing.B) {
 }
 
 func BenchmarkDoSliceFlow(b *testing.B) {
-	initAggrBufTests()
-	Reset()
-	defer Reset()
-	m := commonAggregativeFlowTest{}
-	m.init(testRegistry, &m, `test`, nil)
+	testRegistry := New()
+	defer testRegistry.Reset()
+	m := &commonAggregativeFlowTest{}
+	m.init(testRegistry, m, `test`, nil)
+	for i := uint(0); i < bufferSize; i++ {
+		m.considerValue(float64(i))
+	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.DoSlice()
 	}
 }
 
-var (
-	testMFlow = &commonAggregativeFlowTest{}
-)
-
 func BenchmarkGetPercentilesFlow(b *testing.B) {
-	initAggrBufTests()
-	Reset()
-	defer Reset()
-	m := testMFlow
+	testRegistry := New()
+	defer testRegistry.Reset()
+	m := &commonAggregativeFlowTest{}
+	m.init(testRegistry, m, `test`, nil)
+	for i := uint(0); i < bufferSize; i++ {
+		m.considerValue(float64(i))
+	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.considerValue(float64(i))
@@ -73,10 +76,13 @@ func BenchmarkGetPercentilesFlow(b *testing.B) {
 }
 
 func BenchmarkGetDefaultPercentilesFlow(b *testing.B) {
-	initAggrBufTests()
-	Reset()
-	defer Reset()
-	m := testMFlow
+	testRegistry := New()
+	defer testRegistry.Reset()
+	m := &commonAggregativeFlowTest{}
+	m.init(testRegistry, m, `test`, nil)
+	for i := uint(0); i < bufferSize; i++ {
+		m.considerValue(float64(i))
+	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.considerValue(float64(i))
@@ -96,10 +102,9 @@ func (m *commonAggregativeBufferedTest) GetType() Type {
 }
 
 func BenchmarkConsiderValueBuffered(b *testing.B) {
-	initAggrBufTests()
-	Reset()
-	defer Reset()
 	m := commonAggregativeBufferedTest{}
+	testRegistry := New()
+	defer testRegistry.Reset()
 	m.init(testRegistry, &m, `test`, nil)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -108,10 +113,9 @@ func BenchmarkConsiderValueBuffered(b *testing.B) {
 }
 
 func BenchmarkDoSliceBuffered(b *testing.B) {
-	initAggrBufTests()
-	Reset()
-	defer Reset()
 	m := commonAggregativeBufferedTest{}
+	testRegistry := New()
+	defer testRegistry.Reset()
 	m.init(testRegistry, &m, `test`, nil)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -119,19 +123,18 @@ func BenchmarkDoSliceBuffered(b *testing.B) {
 	}
 }
 
-var (
-	testMBuffered = &commonAggregativeBufferedTest{}
-)
-
 func BenchmarkGetPercentilesBuffered(b *testing.B) {
-	initAggrBufTests()
-	Reset()
-	defer Reset()
-	m := testMBuffered
+	testRegistry := New()
+	defer testRegistry.Reset()
+	m := &commonAggregativeBufferedTest{}
+	m.init(testRegistry, m, `test`, nil)
+	for i := uint(0); i < bufferSize; i++ {
+		m.considerValue(float64(i))
+	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.considerValue(float64(i))
-		m.GetValuePointers().Total().AggregativeStatistics.GetPercentiles([]float64{0.1, 0.5, 0.9})
+		m.GetValuePointers().Total().AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
 	}
 }
 
@@ -149,42 +152,11 @@ func (m *commonAggregativeSimpleTest) GetType() Type {
 func BenchmarkConsiderValueSimple(b *testing.B) {
 	Reset()
 	defer Reset()
+	testRegistry := New()
 	m := commonAggregativeSimpleTest{}
 	m.init(testRegistry, &m, `test`, nil)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.considerValue(1000000)
-	}
-}
-
-var (
-	testRegistry = New()
-	testMSimple  = &commonAggregativeSimpleTest{}
-)
-
-func initAggrBufTests() {
-	testRegistry.SetDefaultPercentiles([]float64{0.5, 0.1, 0.9})
-	{
-		m := testMBuffered
-		m.init(testRegistry, m, `test`, nil)
-		for i := uint(0); i < bufferSize; i++ {
-			m.considerValue(float64(i))
-		}
-	}
-
-	{
-		m := testMFlow
-		m.init(testRegistry, m, `test`, nil)
-		for i := uint(0); i < bufferSize; i++ {
-			m.considerValue(float64(i))
-		}
-	}
-
-	{
-		m := testMSimple
-		m.init(testRegistry, m, `test`, nil)
-		for i := uint(0); i < bufferSize; i++ {
-			m.considerValue(float64(i))
-		}
 	}
 }
