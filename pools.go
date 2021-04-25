@@ -190,8 +190,10 @@ func (s *aggregativeStatisticsBuffered) Release() {
 	aggregativeStatisticsBufferedPool.Put(s)
 }
 
-func newAggregativeStatisticsBuffered() *aggregativeStatisticsBuffered {
-	return aggregativeStatisticsBufferedPool.Get().(*aggregativeStatisticsBuffered)
+func newAggregativeStatisticsBuffered(defaultPercentiles []float64) *aggregativeStatisticsBuffered {
+	stats := aggregativeStatisticsBufferedPool.Get().(*aggregativeStatisticsBuffered)
+	stats.defaultPercentiles = defaultPercentiles
+	return stats
 }
 
 // Release should be called when the buffer won't be used anymore (to put into into the pool of free buffers) to

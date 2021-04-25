@@ -66,21 +66,22 @@ func (m *commonAggregativeBuffered) init(r *Registry, parent Metric, key string,
 
 // NewAggregativeStatistics returns a "Buffered" (see "Buffered" in README.md) implementation of AggregativeStatistics.
 func (m *commonAggregativeBuffered) NewAggregativeStatistics() AggregativeStatistics {
-	return newAggregativeStatisticsBuffered()
+	return newAggregativeStatisticsBuffered(m.registry.defaultPercentiles)
 }
 
 type aggregativeStatisticsBuffered struct {
 	aggregativeBuffer
 
-	tickID uint64
+	defaultPercentiles []float64
+	tickID             uint64
 }
 
-func (s *aggregativeStatisticsBuffered) getPercentile(percentile float64) *float64 {
+func (s *aggregativeStatisticsBuffered) getPercentile(percentile float64) float64 {
 	if s.filledSize == 0 {
-		return &[]float64{0}[0]
+		return 0
 	}
 	percentileIdx := int(float64(s.filledSize) * percentile)
-	return &[]float64{s.data[percentileIdx]}[0]
+	return s.data[percentileIdx]
 }
 
 // GetPercentile returns a percentile value for a given percentile (see https://en.wikipedia.org/wiki/Percentile).
@@ -94,7 +95,7 @@ func (s *aggregativeStatisticsBuffered) GetPercentile(percentile float64) *float
 	s.sort()
 	r := s.getPercentile(percentile)
 	s.locker.Unlock()
-	return r
+	return &r
 }
 
 // GetPercentiles returns percentile values for a given slice of percentiles.
@@ -106,10 +107,23 @@ func (s *aggregativeStatisticsBuffered) GetPercentiles(percentiles []float64) []
 	s.locker.Lock()
 	s.sort()
 	for _, percentile := range percentiles {
-		r = append(r, s.getPercentile(percentile))
+		r = append(r, &[]float64{s.getPercentile(percentile)}[0])
 	}
 	s.locker.Unlock()
 	return r
+}
+
+// GetDefaultPercentiles returns default percentiles and its values.
+func (s *aggregativeStatisticsBuffered) GetDefaultPercentiles() ([]float64, []float64) {
+	s.locker.Lock()
+	defer s.locker.Unlock()
+
+	r := make([]float64, len(s.defaultPercentiles))
+	for idx, p := range s.defaultPercentiles {
+		r[idx] = s.getPercentile(p)
+	}
+
+	return s.defaultPercentiles, r
 }
 
 var (

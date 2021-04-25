@@ -49,7 +49,7 @@ func TestGuessPercentile(t *testing.T) {
 		resultPercentile := checkPercentile(t, percentile)
 		oldV := percentile / (1 - percentile)
 		newV := resultPercentile / (1 - resultPercentile)
-		assert.False(t, newV/oldV > (1+permittedDeviation) || oldV/newV > (1+permittedDeviation), fmt.Sprintf("Too different expected and result percentiles: %v %v", percentile, resultPercentile))
+		assert.False(t, newV/oldV > (1+permittedDeviation) || oldV/newV > (1+permittedDeviation), fmt.Sprintf("Too different expected and resulting percentiles: %v %v", percentile, resultPercentile))
 	}
 }
 

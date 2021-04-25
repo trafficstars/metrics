@@ -3,6 +3,7 @@ package metrics
 import (
 	"bytes"
 	"runtime"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -14,6 +15,7 @@ import (
 const (
 	defaultIterateInterval = time.Minute
 	gcUselessLimit         = 5
+	maxPercentileValues    = 5
 )
 
 const (
@@ -21,6 +23,8 @@ const (
 	monitorState_Started  = 1
 	monitorState_Stopping = 2
 )
+
+var defaultFlowPercentiles = []float64{0.11, 0.1, 0.5, 0.9, 0.99}
 
 var (
 	defaultTags FastTags
@@ -39,6 +43,7 @@ type Registry struct {
 	hiddenTags               *hiddenTagInternal
 	defaultGCEnabled         uint32
 	defaultIsRunned          uint32
+	defaultPercentiles       []float64
 }
 
 func SetLimit(newLimit uint) {
@@ -103,7 +108,8 @@ func (b *keyGeneratorReusables) Release() {
 
 func New() *Registry {
 	r := &Registry{
-		storage: atomicmap.New(),
+		storage:            atomicmap.New(),
+		defaultPercentiles: defaultFlowPercentiles,
 	}
 	r.SetDefaultGCEnabled(true)
 	r.SetDefaultIsRan(true)
@@ -555,4 +561,13 @@ func IsHiddenTag(tagKey string, tagValue interface{}) bool {
 
 func SetHiddenTags(newRawHiddenTags HiddenTags) {
 	registry.SetHiddenTags(newRawHiddenTags)
+}
+
+func SetFlowPercentiles(p []float64) {
+	registry.SetDefaultPercentiles(p)
+}
+
+func (r *Registry) SetDefaultPercentiles(p []float64) {
+	sort.Float64s(p)
+	r.defaultPercentiles = p
 }

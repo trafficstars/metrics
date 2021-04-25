@@ -68,7 +68,19 @@ func BenchmarkGetPercentilesFlow(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.considerValue(float64(i))
-		m.GetValuePointers().Total().AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
+		m.GetValuePointers().Total().AggregativeStatistics.GetPercentiles([]float64{0.1, 0.5, 0.9})
+	}
+}
+
+func BenchmarkGetDefaultPercentilesFlow(b *testing.B) {
+	initAggrBufTests()
+	Reset()
+	defer Reset()
+	m := testMFlow
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.considerValue(float64(i))
+		m.GetValuePointers().Total().AggregativeStatistics.GetDefaultPercentiles()
 	}
 }
 
@@ -119,7 +131,7 @@ func BenchmarkGetPercentilesBuffered(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.considerValue(float64(i))
-		m.GetValuePointers().Total().AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
+		m.GetValuePointers().Total().AggregativeStatistics.GetPercentiles([]float64{0.1, 0.5, 0.9})
 	}
 }
 
@@ -151,6 +163,7 @@ var (
 )
 
 func initAggrBufTests() {
+	testRegistry.SetDefaultPercentiles([]float64{0.5, 0.1, 0.9})
 	{
 		m := testMBuffered
 		m.init(testRegistry, m, `test`, nil)

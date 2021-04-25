@@ -29,6 +29,9 @@ type AggregativeStatistics interface {
 	// A value is nil if the percentile could not be calculated.
 	GetPercentiles(percentile []float64) []*float64
 
+	// GetDefaultPercentiles returns default percentiles and its values.
+	GetDefaultPercentiles() (percentiles []float64, values []float64)
+
 	// Set forces all the values in the statistics to be equal to the passed values
 	Set(staticValue float64)
 
@@ -260,6 +263,7 @@ func (m *commonAggregative) NewAggregativeValue() *AggregativeValue {
 
 func (m *commonAggregative) init(r *Registry, parent Metric, key string, tags AnyTags) {
 	m.parent = parent
+	m.common.registry = r
 
 	// See "Slicing" in README.md
 
@@ -363,28 +367,22 @@ func (w *commonAggregative) GetValuePointers() *AggregativeValues {
 
 // String returns a JSON string representing values (min, max, count, ...) of an aggregative value
 func (v *AggregativeValue) String() string {
-	if v.AggregativeStatistics == nil {
-		return fmt.Sprintf(`{"count":%d,"min":%g,"avg":%g,"max":%g,"sum":%g}`,
-			v.Count.Get(),
-			v.Min.Get(),
-			v.Avg.Get(),
-			v.Max.Get(),
-			v.Sum.Get(),
-		)
-	}
-	percentiles := v.AggregativeStatistics.GetPercentiles([]float64{0.01, 0.1, 0.5, 0.9, 0.99})
-	return fmt.Sprintf(`{"count":%d,"min":%g,"per1":%g,"per10":%g,"per50":%g,"avg":%g,"per90":%g,"per99":%g,"max":%g,"sum":%g}`,
+	var result strings.Builder
+	result.WriteString(fmt.Sprintf(`{"count":%d,"min":%g,"avg":%g,"max":%g,"sum":%g`,
 		v.Count.Get(),
 		v.Min.Get(),
-		*percentiles[0],
-		*percentiles[1],
-		*percentiles[2],
 		v.Avg.Get(),
-		*percentiles[3],
-		*percentiles[4],
 		v.Max.Get(),
 		v.Sum.Get(),
-	)
+	))
+
+	percentiles, values := v.AggregativeStatistics.GetDefaultPercentiles()
+	for idx, p := range percentiles {
+		v := values[idx]
+		result.WriteString(fmt.Sprintf(`,"per%f":%g`, p*100, v))
+	}
+	result.WriteRune('}')
+	return result.String()
 }
 
 // MarshalJSON is a JSON marshalizer for an aggregative metric to be exported as JSON (for example
