@@ -9,8 +9,6 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.7.0 h1:nwc3DEeHmmLAfoZucVR881uASk0Mfjw8xYJ99tb5CcY=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
-github.com/trafficstars/metrics v0.0.0-20200814135838-ec71779fd01d h1:oaNysRM5GBBg4f6Xkv/WOlwRtGX3FDVewFO6qSa3SRE=
-github.com/trafficstars/metrics v0.0.0-20200814135838-ec71779fd01d/go.mod h1:HHFbOLT4Kf5raCtxlL8s5cDvsJC9knlxD1EL2B8pjGw=
 github.com/xaionaro-go/atomicmap v0.0.0-20200307233044-c040bc137895 h1:PFzS0ykP4VVJmqv94Khyp6U5QavIdcrQZw9E13G+Go8=
 github.com/xaionaro-go/atomicmap v0.0.0-20200307233044-c040bc137895/go.mod h1:WgfDl7x9++CVnKSu63ThFhBF3nvgj60Ft1nCgrOSgWM=
 github.com/xaionaro-go/spinlock v0.0.0-20190309154744-55278e21e817 h1:0ikx4JlTx9uNiHGGC4o0k93GhcWOtONYdhk2H8RUnZU=
