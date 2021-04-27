@@ -4,8 +4,8 @@ type commonAggregativeSimple struct {
 	commonAggregative
 }
 
-func (m *commonAggregativeSimple) init(parent Metric, key string, tags AnyTags) {
-	m.commonAggregative.init(parent, key, tags)
+func (m *commonAggregativeSimple) init(r *Registry, parent Metric, key string, tags AnyTags) {
+	m.commonAggregative.init(r, parent, key, tags)
 }
 
 // NewAggregativeStatistics returns nil

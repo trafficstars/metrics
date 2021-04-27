@@ -3,15 +3,25 @@ package metrics
 import (
 	"bytes"
 	"sync"
+	"sync/atomic"
 )
 
 var (
-	memoryReuse = true
+	memoryReuse = uint64(1)
 )
+
+// MemoryReuseEnabled returns if memory reuse is enabled.
+func MemoryReuseEnabled() bool {
+	return atomic.LoadUint64(&memoryReuse) != 0
+}
 
 // SetMemoryReuseEnabled defines if memory reuse will be enabled (default -- enabled).
 func SetMemoryReuseEnabled(isEnabled bool) {
-	memoryReuse = isEnabled
+	if isEnabled {
+		atomic.StoreUint64(&memoryReuse, 1)
+	} else {
+		atomic.StoreUint64(&memoryReuse, 0)
+	}
 }
 
 type bytesBuffer struct {
@@ -138,7 +148,7 @@ var (
 )
 
 func (s *Metrics) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
 	*s = (*s)[:0]
@@ -150,7 +160,7 @@ func newBytesBuffer() *bytesBuffer {
 }
 
 func (buf *bytesBuffer) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
 	buf.Reset()
@@ -162,7 +172,7 @@ func newStringSlice() *stringSlice {
 }
 
 func (s *stringSlice) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
 	*s = (*s)[:0]
@@ -172,7 +182,7 @@ func (s *stringSlice) Release() {
 // Release should be called when the buffer won't be used anymore (to put into into the pool of free buffers) to
 // reduce pressure on GC.
 func (s *aggregativeStatisticsBuffered) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
 	s.filledSize = 0
@@ -180,14 +190,16 @@ func (s *aggregativeStatisticsBuffered) Release() {
 	aggregativeStatisticsBufferedPool.Put(s)
 }
 
-func newAggregativeStatisticsBuffered() *aggregativeStatisticsBuffered {
-	return aggregativeStatisticsBufferedPool.Get().(*aggregativeStatisticsBuffered)
+func newAggregativeStatisticsBuffered(defaultPercentiles []float64) *aggregativeStatisticsBuffered {
+	stats := aggregativeStatisticsBufferedPool.Get().(*aggregativeStatisticsBuffered)
+	stats.defaultPercentiles = defaultPercentiles
+	return stats
 }
 
 // Release should be called when the buffer won't be used anymore (to put into into the pool of free buffers) to
 // reduce pressure on GC.
 func (b *aggregativeBuffer) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
 	b.filledSize = 0
@@ -199,7 +211,7 @@ func newAggregativeBuffer() *aggregativeBuffer {
 }
 
 func (s *aggregativeStatisticsFlow) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
 	s.Set(0)
@@ -214,7 +226,7 @@ func newAggregativeStatisticsFlow() *aggregativeStatisticsFlow {
 // Release is an opposite to NewAggregativeValue and it saves the variable to a pool to a prevent memory allocation in future.
 // It's not necessary to call this method when you finished to work with an AggregativeValue, but recommended to (for better performance).
 func (v *AggregativeValue) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
 	if v == nil {
@@ -234,90 +246,101 @@ func (v *AggregativeValue) Release() {
 }
 
 func (m *MetricGaugeFloat64Func) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
+	atomic.StoreUint64(&m.running, 0)
 	*m = MetricGaugeFloat64Func{}
 	metricGaugeFloat64FuncPool.Put(m)
 }
 
 func (m *MetricCount) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
+	atomic.StoreUint64(&m.running, 0)
 	*m = MetricCount{}
 	metricCountPool.Put(m)
 }
 
 func (m *MetricGaugeAggregativeFlow) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
-	*m = MetricGaugeAggregativeFlow{}
+	atomic.StoreUint64(&m.running, 0)
+	//m.reset()
 	metricGaugeAggregativeFlowPool.Put(m)
 }
 
 func (m *MetricGaugeAggregativeBuffered) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
-	*m = MetricGaugeAggregativeBuffered{}
+	atomic.StoreUint64(&m.running, 0)
+	//m.reset()
 	metricGaugeAggregativeBufferedPool.Put(m)
 }
 
 func (m *MetricGaugeAggregativeSimple) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
-	*m = MetricGaugeAggregativeSimple{}
+	atomic.StoreUint64(&m.running, 0)
+	//m.reset()
 	metricGaugeAggregativeSimplePool.Put(m)
 }
 
 func (m *MetricGaugeInt64) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
-	*m = MetricGaugeInt64{}
+	atomic.StoreUint64(&m.running, 0)
+	//m.reset()
 	metricGaugeInt64Pool.Put(m)
 }
 
 func (m *MetricGaugeInt64Func) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
-	*m = MetricGaugeInt64Func{}
+	atomic.StoreUint64(&m.running, 0)
+	//m.reset()
 	metricGaugeInt64FuncPool.Put(m)
 }
 
 func (m *MetricTimingFlow) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
-	*m = MetricTimingFlow{}
+	atomic.StoreUint64(&m.running, 0)
+	//m.reset()
 	metricTimingFlowPool.Put(m)
 }
 
 func (m *MetricTimingBuffered) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
-	*m = MetricTimingBuffered{}
+	atomic.StoreUint64(&m.running, 0)
+	//m.reset()
 	metricTimingBufferedPool.Put(m)
 }
 
 func (m *MetricTimingSimple) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
-	*m = MetricTimingSimple{}
+	atomic.StoreUint64(&m.running, 0)
+	//m.reset()
 	metricTimingSimplePool.Put(m)
 }
 
 func (m *MetricGaugeFloat64) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
-	*m = MetricGaugeFloat64{}
+	atomic.StoreUint64(&m.running, 0)
+	//m.reset()
 	metricGaugeFloat64Pool.Put(m)
 }
 
@@ -326,7 +349,7 @@ func newIterationHandler() *iterationHandler {
 }
 
 func (m *iterationHandler) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
 	iterationHandlerPool.Put(m)

@@ -64,8 +64,8 @@ func (iterationHandler *iterationHandler) loop() {
 }
 
 func (iterationHandler *iterationHandler) start() {
+	atomic.AddInt64(&iterationHandlers.routinesCount, 1)
 	go func() {
-		atomic.AddInt64(&iterationHandlers.routinesCount, 1)
 		iterationHandler.loop()
 	}()
 }
@@ -80,11 +80,17 @@ func (iterationHandler *iterationHandler) stop() {
 func (iterationHandler *iterationHandler) Add(iterator iterator) {
 	iterationHandler.RLock()
 	iterators := iterationHandler.iterators
-	iterationHandler.RUnlock()
+	found := false
 	for _, curIterator := range iterators {
 		if curIterator.EqualsTo(iterator) {
-			return
+			found = true
+			break
 		}
+	}
+	iterationHandler.RUnlock()
+
+	if found {
+		return
 	}
 
 	// RLock is preferred over Lock and a real adding is a rare event, so…
@@ -119,7 +125,7 @@ func (iterationHandler *iterationHandler) Remove(removeIterator iterator) (resul
 
 	// len(iterationHandler.iterators) > 1
 
-	leftIterators := make([]iterator, 0, len(iterationHandler.iterators))
+	leftIterators := make([]iterator, 0, len(iterationHandler.iterators)-1)
 	for _, curIterator := range iterationHandler.iterators {
 		if curIterator == removeIterator {
 			continue
@@ -183,8 +189,6 @@ func (iterationHandlers *iterationHandlersT) getOrCreateIterationHandler(iterato
 	iterationHandlers.m.Set(uint64(iterationHandler.iterateInterval.Nanoseconds()), iterationHandler)
 	return iterationHandler
 }
-
-var c int32
 
 // Add adds a metric to the iterators registry. So it will be called method Iterate() of the metric in the interval returned by metric.GetInterval()
 func (iterators *iterationHandlersT) Add(iterator iterator) {

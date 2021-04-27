@@ -3,6 +3,7 @@ package metrics
 import (
 	"bytes"
 	"runtime"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -14,6 +15,7 @@ import (
 const (
 	defaultIterateInterval = time.Minute
 	gcUselessLimit         = 5
+	maxPercentileValues    = 5
 )
 
 const (
@@ -22,8 +24,9 @@ const (
 	monitorState_Stopping = 2
 )
 
+var defaultFlowPercentiles = []float64{0.01, 0.1, 0.5, 0.9, 0.99}
+
 var (
-	registry    Registry
 	defaultTags FastTags
 )
 
@@ -40,38 +43,39 @@ type Registry struct {
 	hiddenTags               *hiddenTagInternal
 	defaultGCEnabled         uint32
 	defaultIsRunned          uint32
+	defaultPercentiles       []float64
 }
 
 func SetLimit(newLimit uint) {
 	// for future compatibility
 }
 
-func (registry *Registry) SetDisabled(newIsDisabled bool) bool {
+func (r *Registry) SetDisabled(newIsDisabled bool) bool {
 	newValue := uint32(0)
 	if newIsDisabled {
 		newValue = 1
 	}
 
-	return atomic.SwapUint32(&registry.isDisabled, newValue) != 0
+	return atomic.SwapUint32(&r.isDisabled, newValue) != 0
 }
 
 func SetDisabled(newIsDisabled bool) bool {
 	return registry.SetDisabled(newIsDisabled)
 }
 
-func (registry *Registry) IsDisabled() bool {
-	return atomic.LoadUint32(&registry.isDisabled) != 0
+func (r *Registry) IsDisabled() bool {
+	return atomic.LoadUint32(&r.isDisabled) != 0
 }
 
 func IsDisabled() bool {
 	return registry.IsDisabled()
 }
 
-func (registry *Registry) GetDefaultIterateInterval() time.Duration {
-	if registry.metricsIterateIntervaler == nil {
+func (r *Registry) GetDefaultIterateInterval() time.Duration {
+	if r.metricsIterateIntervaler == nil {
 		return defaultIterateInterval
 	}
-	return registry.metricsIterateIntervaler.MetricsIterateInterval()
+	return r.metricsIterateIntervaler.MetricsIterateInterval()
 }
 
 func GetDefaultIterateInterval() time.Duration {
@@ -95,59 +99,72 @@ func newKeyGeneratorReusables() *keyGeneratorReusables {
 }
 
 func (b *keyGeneratorReusables) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
 	b.buf.Reset()
 	keyGeneratorReusablesPool.Put(b)
 }
 
-func init() {
-	SetDefaultGCEnabled(true)
-	SetDefaultIsRunned(true)
-	SetSender(nil)
-}
-
-func (registry *Registry) get(metricType Type, key string, tags AnyTags) Metric {
-	considerHiddenTags(tags)
-	buf := generateStorageKey(metricType, key, tags)
-	rI, _ := registry.storage.GetByBytes(buf.buf.Bytes())
-	buf.Release()
-	if rI == nil {
-		return nil
+func New() *Registry {
+	r := &Registry{
+		storage:            atomicmap.New(),
+		defaultPercentiles: defaultFlowPercentiles,
 	}
-	r := rI.(Metric)
-	if !r.IsRunning() {
-		r.Run(registry.GetDefaultIterateInterval())
-		_ = registry.set(r) // may be GC already cleanup this metric, so re-set it
-	}
+	r.SetDefaultGCEnabled(true)
+	r.SetDefaultIsRan(true)
+	r.SetSender(nil)
 	return r
 }
 
-func (registry *Registry) Get(metricType Type, key string, tags AnyTags) Metric {
-	if registry.IsDisabled() {
+var registry = New()
+
+func (r *Registry) get(metricType Type, key string, tags AnyTags) Metric {
+	considerHiddenTags(tags)
+	buf := generateStorageKey(metricType, key, tags)
+	mI, _ := r.storage.GetByBytes(buf.buf.Bytes())
+	buf.Release()
+	if mI == nil {
 		return nil
 	}
-	return registry.get(metricType, key, tags)
+	m := mI.(Metric)
+	if m.IsRunning() {
+		return m
+	}
+
+	m.lock()
+	defer m.unlock()
+	if !m.IsRunning() {
+		m.run(r.GetDefaultIterateInterval())
+		_ = r.set(m) // may be GC already cleanup this metric, so re-set it
+	}
+	return m
 }
 
-func (registry *Registry) set(metric Metric) error {
-	_ = registry.storage.Set(metric.GetKey(), metric)
+func (r *Registry) Get(metricType Type, key string, tags AnyTags) Metric {
+	if r.IsDisabled() {
+		return nil
+	}
+	return r.get(metricType, key, tags)
+}
+
+func (r *Registry) set(metric Metric) error {
+	_ = r.storage.Set(metric.GetKey(), metric)
 	return nil
 }
 
-func (registry *Registry) Set(metric Metric) error {
-	if v, _ := registry.storage.GetByBytes(metric.GetKey()); v != nil {
+func (r *Registry) Set(metric Metric) error {
+	if v, _ := r.storage.GetByBytes(metric.GetKey()); v != nil {
 		return ErrAlreadyExists
 	}
 
-	return registry.set(metric)
+	return r.set(metric)
 }
 
-func (registry *Registry) list() *Metrics {
+func (r *Registry) list() *Metrics {
 	result := newMetrics()
-	for _, metricKey := range registry.storage.Keys() {
-		metricI, _ := registry.storage.GetByBytes(metricKey.([]byte))
+	for _, metricKey := range r.storage.Keys() {
+		metricI, _ := r.storage.GetByBytes(metricKey.([]byte))
 		if metricI == nil {
 			continue
 		}
@@ -160,34 +177,37 @@ func (registry *Registry) list() *Metrics {
 	return result
 }
 
-func (registry *Registry) listSorted() (result *Metrics) {
-	list := registry.list()
+func (r *Registry) listSorted() (result *Metrics) {
+	list := r.list()
 	list.Sort()
 	return list
 }
 
-func (registry *Registry) List() (result *Metrics) {
-	return registry.list()
+func (r *Registry) List() (result *Metrics) {
+	return r.list()
 }
 
-func (registry *Registry) remove(metric Metric) {
-	metric.Stop()
-	_ = registry.storage.Unset(metric.GetKey())
+func (r *Registry) remove(metric Metric) {
+	metric.stop()
+	err := r.storage.Unset(metric.GetKey())
+	if err != nil {
+		panic(err)
+	}
 }
 
-func (registry *Registry) GetSender() Sender {
-	return *(*Sender)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&registry.metricSender))))
+func (r *Registry) GetSender() Sender {
+	return *(*Sender)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&r.metricSender))))
 }
 
-func (registry *Registry) SetSender(newMetricSender Sender) {
-	atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&registry.metricSender)), (unsafe.Pointer)(&newMetricSender))
+func (r *Registry) SetSender(newMetricSender Sender) {
+	atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&r.metricSender)), (unsafe.Pointer)(&newMetricSender))
 }
 
-func (registry *Registry) SetDefaultGCEnabled(newGCEnabledValue bool) {
+func (r *Registry) SetDefaultGCEnabled(newGCEnabledValue bool) {
 	if newGCEnabledValue {
-		atomic.StoreUint32(&registry.defaultGCEnabled, 1)
+		atomic.StoreUint32(&r.defaultGCEnabled, 1)
 	} else {
-		atomic.StoreUint32(&registry.defaultGCEnabled, 0)
+		atomic.StoreUint32(&r.defaultGCEnabled, 0)
 	}
 }
 
@@ -195,36 +215,36 @@ func SetDefaultGCEnabled(newValue bool) {
 	registry.SetDefaultGCEnabled(newValue)
 }
 
-func (registry *Registry) GetDefaultGCEnabled() bool {
-	return atomic.LoadUint32(&registry.defaultGCEnabled) != 0
+func (r *Registry) GetDefaultGCEnabled() bool {
+	return atomic.LoadUint32(&r.defaultGCEnabled) != 0
 }
 
 func GetDefaultGCEnabled() bool {
 	return registry.GetDefaultGCEnabled()
 }
 
-func (registry *Registry) SetDefaultIsRunned(newIsRunnedValue bool) {
-	if newIsRunnedValue {
-		atomic.StoreUint32(&registry.defaultIsRunned, 1)
+func (r *Registry) SetDefaultIsRan(newIsRanValue bool) {
+	if newIsRanValue {
+		atomic.StoreUint32(&r.defaultIsRunned, 1)
 	} else {
-		atomic.StoreUint32(&registry.defaultIsRunned, 0)
+		atomic.StoreUint32(&r.defaultIsRunned, 0)
 	}
 }
 
-func SetDefaultIsRunned(newValue bool) {
-	registry.SetDefaultIsRunned(newValue)
+func SetDefaultIsRan(newValue bool) {
+	registry.SetDefaultIsRan(newValue)
 }
 
-func (registry *Registry) GetDefaultIsRunned() bool {
-	return atomic.LoadUint32(&registry.defaultIsRunned) != 0
+func (r *Registry) GetDefaultIsRan() bool {
+	return atomic.LoadUint32(&r.defaultIsRunned) != 0
 }
 
 func GetDefaultIsRunned() bool {
-	return registry.GetDefaultIsRunned()
+	return registry.GetDefaultIsRan()
 }
 
-func (registry *Registry) getMonitorState() uint32 {
-	return atomic.LoadUint32(&registry.monitorState)
+func (r *Registry) getMonitorState() uint32 {
+	return atomic.LoadUint32(&r.monitorState)
 }
 
 /*func (m *MetricsRegistry) setMonitorState(newState uint64) uint64 { // returns the old state
@@ -280,13 +300,13 @@ func (registry *Registry) getMonitorState() uint32 {
 	panic("Shouldn't happened, ever")
 }*/
 
-func (registry *Registry) setMonitorState(newState uint32) uint32 {
-	return atomic.SwapUint32(&registry.monitorState, newState)
+func (r *Registry) setMonitorState(newState uint32) uint32 {
+	return atomic.SwapUint32(&r.monitorState, newState)
 }
 
-func (registry *Registry) startMonitor() {
-	if v := registry.setMonitorState(monitorState_Started); v != monitorState_Stopped {
-		registry.setMonitorState(v)
+func (r *Registry) startMonitor() {
+	if v := r.setMonitorState(monitorState_Started); v != monitorState_Stopped {
+		r.setMonitorState(v)
 		return
 	}
 
@@ -294,9 +314,9 @@ func (registry *Registry) startMonitor() {
 	pausesLatency := int64(-1)
 
 	go func() {
-		interval := registry.GetDefaultIterateInterval()
+		interval := r.GetDefaultIterateInterval()
 		for {
-			monitorState := registry.getMonitorState()
+			monitorState := r.getMonitorState()
 			if monitorState != monitorState_Started {
 				break
 			}
@@ -312,7 +332,7 @@ func (registry *Registry) startMonitor() {
 			time.Sleep(interval)
 		}
 
-		registry.setMonitorState(monitorState_Stopped)
+		r.setMonitorState(monitorState_Stopped)
 	}()
 
 	GaugeInt64Func(`runtime.memory.alloc.bytes`, Tags{`type`: `total`}, func() int64 { return int64(mem.Alloc) }).SetGCEnabled(false)
@@ -326,21 +346,27 @@ func (registry *Registry) startMonitor() {
 	GaugeInt64Func(`runtime.cpu.fraction.e6`, nil, func() int64 { return int64(mem.GCCPUFraction * 1000000) }).SetGCEnabled(false)
 }
 
-func (registry *Registry) stopMonitor() {
-	registry.setMonitorState(monitorState_Stopping)
+func (r *Registry) stopMonitor() {
+	r.setMonitorState(monitorState_Stopping)
 }
 
-func (registry *Registry) GC() {
-	for _, metricKey := range registry.storage.Keys() {
-		metricI, _ := registry.storage.Get(metricKey)
+func (r *Registry) GC() {
+	for _, metricKey := range r.storage.Keys() {
+		metricI, _ := r.storage.Get(metricKey)
 		if metricI == nil {
 			continue
 		}
 		metric := metricI.(Metric)
+		if metric.IsRunning() || !metric.IsGCEnabled() {
+			continue
+		}
+
+		metric.lock()
 		if !metric.IsRunning() {
-			registry.remove(metric)
+			r.remove(metric)
 			metric.Release()
 		}
+		metric.unlock()
 	}
 }
 
@@ -348,7 +374,7 @@ func GC() {
 	registry.GC()
 }
 
-func (registry *Registry) Register(metric Metric, key string, inTags AnyTags) error {
+func (r *Registry) Register(metric Metric, key string, inTags AnyTags) error {
 	var tags *FastTags
 
 	if inTags != nil {
@@ -373,7 +399,7 @@ func (registry *Registry) Register(metric Metric, key string, inTags AnyTags) er
 	copy(commons.storageKey, storageKey)
 	buf.Release()
 
-	return registry.Set(metric)
+	return r.Set(metric)
 }
 
 func List() *Metrics {
@@ -462,10 +488,6 @@ func generateStorageKey(metricType Type, key string, tags AnyTags) *keyGenerator
 	return reusables
 }
 
-func init() {
-	registry.storage = atomicmap.New()
-}
-
 // SetSender sets a handler responsible to send metric values to a metrics server (like StatsD)
 func SetSender(newMetricSender Sender) {
 	registry.SetSender(newMetricSender)
@@ -488,15 +510,15 @@ func GetDefaultTags() *FastTags {
 	return &defaultTags
 }
 
-func (registry *Registry) getHiddenTags() hiddenTagsInternal {
-	result := atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&registry.hiddenTags)))
+func (r *Registry) getHiddenTags() hiddenTagsInternal {
+	result := atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&r.hiddenTags)))
 	if result == nil {
 		return nil
 	}
 	return *(*hiddenTagsInternal)(result)
 }
 
-func (registry *Registry) SetHiddenTags(newRawHiddenTags HiddenTags) {
+func (r *Registry) SetHiddenTags(newRawHiddenTags HiddenTags) {
 	var newHiddenTags hiddenTagsInternal
 	if len(newRawHiddenTags) == 0 {
 		newHiddenTags = nil
@@ -507,22 +529,25 @@ func (registry *Registry) SetHiddenTags(newRawHiddenTags HiddenTags) {
 		}
 		newHiddenTags.Sort()
 	}
-	atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&registry.hiddenTags)), (unsafe.Pointer)(&newHiddenTags))
+	atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&r.hiddenTags)), (unsafe.Pointer)(&newHiddenTags))
 }
 
-func (registry *Registry) IsHiddenTag(tagKey string, tagValue interface{}) bool {
-	hiddenTags := registry.getHiddenTags()
+func (r *Registry) IsHiddenTag(tagKey string, tagValue interface{}) bool {
+	hiddenTags := r.getHiddenTags()
 	return hiddenTags.IsHiddenTag(tagKey, tagValue)
 }
 
-func (registry *Registry) Reset() {
-	for _, metricKey := range registry.storage.Keys() {
-		metric, _ := registry.storage.Get(metricKey)
-		if metric == nil {
+func (r *Registry) Reset() {
+	for _, metricKey := range r.storage.Keys() {
+		metricI, _ := r.storage.Get(metricKey)
+		if metricI == nil {
 			continue
 		}
-		metric.(Metric).Stop()
-		_ = registry.storage.Unset(metricKey)
+		metric := metricI.(Metric)
+		metric.lock()
+		metric.stop()
+		_ = r.storage.Unset(metricKey)
+		metric.unlock()
 	}
 }
 
@@ -536,4 +561,13 @@ func IsHiddenTag(tagKey string, tagValue interface{}) bool {
 
 func SetHiddenTags(newRawHiddenTags HiddenTags) {
 	registry.SetHiddenTags(newRawHiddenTags)
+}
+
+func SetDefaultPercentiles(p []float64) {
+	registry.SetDefaultPercentiles(p)
+}
+
+func (r *Registry) SetDefaultPercentiles(p []float64) {
+	sort.Float64s(p)
+	r.defaultPercentiles = p
 }

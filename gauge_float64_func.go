@@ -8,9 +8,9 @@ type MetricGaugeFloat64Func struct {
 	fn func() float64
 }
 
-func newMetricGaugeFloat64Func(key string, tags AnyTags, fn func() float64) *MetricGaugeFloat64Func {
+func (r *Registry) newMetricGaugeFloat64Func(key string, tags AnyTags, fn func() float64) *MetricGaugeFloat64Func {
 	metric := metricGaugeFloat64FuncPool.Get().(*MetricGaugeFloat64Func)
-	metric.init(key, tags, fn)
+	metric.init(r, key, tags, fn)
 	return metric
 }
 
@@ -22,21 +22,32 @@ func newMetricGaugeFloat64Func(key string, tags AnyTags, fn func() float64) *Met
 //
 // Usually if somebody uses this metrics it requires to disable the GC: `metric.SetGCEnabled(false)`
 func GaugeFloat64Func(key string, tags AnyTags, fn func() float64) *MetricGaugeFloat64Func {
-	if IsDisabled() {
+	return registry.GaugeFloat64Func(key, tags, fn)
+}
+
+// GaugeFloat64Func returns a metric of type "MetricGaugeFloat64Func".
+//
+// MetricGaugeFloat64Func is a gauge metric which uses a float64 value returned by the function "fn".
+//
+// This metric is the same as MetricGaugeFloat64, but uses the function "fn" as a source of values.
+//
+// Usually if somebody uses this metrics it requires to disable the GC: `metric.SetGCEnabled(false)`
+func (r *Registry) GaugeFloat64Func(key string, tags AnyTags, fn func() float64) *MetricGaugeFloat64Func {
+	if r.IsDisabled() {
 		return (*MetricGaugeFloat64Func)(nil)
 	}
 
-	m := registry.Get(TypeGaugeFloat64Func, key, tags)
+	m := r.Get(TypeGaugeFloat64Func, key, tags)
 	if m != nil {
 		return m.(*MetricGaugeFloat64Func)
 	}
 
-	return newMetricGaugeFloat64Func(key, tags, fn)
+	return r.newMetricGaugeFloat64Func(key, tags, fn)
 }
 
-func (m *MetricGaugeFloat64Func) init(key string, tags AnyTags, fn func() float64) {
+func (m *MetricGaugeFloat64Func) init(r *Registry, key string, tags AnyTags, fn func() float64) {
 	m.fn = fn
-	m.common.init(m, key, tags, func() bool { return m.wasUseless() })
+	m.common.init(r, m, key, tags, func() bool { return m.wasUseless() })
 }
 
 func (m *MetricGaugeFloat64Func) GetType() Type {

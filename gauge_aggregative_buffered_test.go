@@ -5,6 +5,6 @@ import (
 )
 
 func TestMetricInterfaceOnGaugeAggregativeBuffered(t *testing.T) {
-	m := newMetricGaugeAggregativeBuffered(``, nil)
+	m := registry.newMetricGaugeAggregativeBuffered(``, nil)
 	checkForInfiniteRecursion(m)
 }

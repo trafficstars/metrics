@@ -5,6 +5,6 @@ import (
 )
 
 func TestMetricInterfaceOnGaugeAggregativeFlow(t *testing.T) {
-	m := newMetricGaugeAggregativeFlow(``, nil)
+	m := registry.newMetricGaugeAggregativeFlow(``, nil)
 	checkForInfiniteRecursion(m)
 }

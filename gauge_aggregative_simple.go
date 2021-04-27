@@ -8,14 +8,14 @@ type MetricGaugeAggregativeSimple struct {
 	commonAggregativeSimple
 }
 
-func newMetricGaugeAggregativeSimple(key string, tags AnyTags) *MetricGaugeAggregativeSimple {
+func (r *Registry) newMetricGaugeAggregativeSimple(key string, tags AnyTags) *MetricGaugeAggregativeSimple {
 	metric := metricGaugeAggregativeSimplePool.Get().(*MetricGaugeAggregativeSimple)
-	metric.init(key, tags)
+	metric.init(r, key, tags)
 	return metric
 }
 
-func (m *MetricGaugeAggregativeSimple) init(key string, tags AnyTags) {
-	m.commonAggregativeSimple.init(m, key, tags)
+func (m *MetricGaugeAggregativeSimple) init(r *Registry, key string, tags AnyTags) {
+	m.commonAggregativeSimple.init(r, m, key, tags)
 }
 
 // GaugeAggregativeSimple returns a metric of type "MetricGaugeAggregativeSimple".
@@ -30,16 +30,20 @@ func (m *MetricGaugeAggregativeSimple) init(key string, tags AnyTags) {
 //
 // MetricGaugeAggregativeSimple uses the "Simple" method to aggregate the statistics (see "Simple" in README.md)
 func GaugeAggregativeSimple(key string, tags AnyTags) *MetricGaugeAggregativeSimple {
+	return registry.GaugeAggregativeSimple(key, tags)
+}
+
+func (r *Registry) GaugeAggregativeSimple(key string, tags AnyTags) *MetricGaugeAggregativeSimple {
 	if IsDisabled() {
 		return (*MetricGaugeAggregativeSimple)(nil)
 	}
 
-	m := registry.Get(TypeGaugeAggregativeSimple, key, tags)
+	m := r.Get(TypeGaugeAggregativeSimple, key, tags)
 	if m != nil {
 		return m.(*MetricGaugeAggregativeSimple)
 	}
 
-	return newMetricGaugeAggregativeSimple(key, tags)
+	return r.newMetricGaugeAggregativeSimple(key, tags)
 }
 
 // ConsiderValue adds a value to the statistics, it's an analog of prometheus' "Observe"

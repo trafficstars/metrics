@@ -29,7 +29,7 @@ func NewTags() Tags {
 }
 
 func (tags Tags) Release() {
-	if !memoryReuse {
+	if !MemoryReuseEnabled() {
 		return
 	}
 	for k := range tags {

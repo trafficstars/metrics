@@ -12,9 +12,9 @@ type commonInt64 struct {
 	previousValue int64
 }
 
-func (m *commonInt64) init(parent Metric, key string, tags AnyTags) {
+func (m *commonInt64) init(r *Registry, parent Metric, key string, tags AnyTags) {
 	m.valuePtr = &[]int64{0}[0]
-	m.common.init(parent, key, tags, func() bool { return m.wasUseless() })
+	m.common.init(r, parent, key, tags, func() bool { return m.wasUseless() })
 }
 
 // Increment is an analog of Add(1). It just adds "1" to the internal value and returns the result.

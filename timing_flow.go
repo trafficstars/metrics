@@ -8,27 +8,31 @@ type MetricTimingFlow struct {
 	commonAggregativeFlow
 }
 
-func newMetricTimingFlow(key string, tags AnyTags) *MetricTimingFlow {
+func (r *Registry) newMetricTimingFlow(key string, tags AnyTags) *MetricTimingFlow {
 	metric := metricTimingFlowPool.Get().(*MetricTimingFlow)
-	metric.init(key, tags)
+	metric.init(r, key, tags)
 	return metric
 }
 
-func (m *MetricTimingFlow) init(key string, tags AnyTags) {
-	m.commonAggregativeFlow.init(m, key, tags)
+func (m *MetricTimingFlow) init(r *Registry, key string, tags AnyTags) {
+	m.commonAggregativeFlow.init(r, m, key, tags)
 }
 
 func TimingFlow(key string, tags AnyTags) *MetricTimingFlow {
+	return registry.TimingFlow(key, tags)
+}
+
+func (r *Registry) TimingFlow(key string, tags AnyTags) *MetricTimingFlow {
 	if IsDisabled() {
 		return (*MetricTimingFlow)(nil)
 	}
 
-	m := registry.Get(TypeTimingFlow, key, tags)
+	m := r.Get(TypeTimingFlow, key, tags)
 	if m != nil {
 		return m.(*MetricTimingFlow)
 	}
 
-	return newMetricTimingFlow(key, tags)
+	return r.newMetricTimingFlow(key, tags)
 }
 
 func (m *MetricTimingFlow) ConsiderValue(v time.Duration) {

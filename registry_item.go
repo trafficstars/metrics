@@ -6,10 +6,13 @@ type registryItem struct {
 	description string
 	storageKey  []byte
 
-	parent Metric
+	registry *Registry
+	parent   Metric
+	locker   Spinlock
 }
 
-func (item *registryItem) init(parent Metric, name string) {
+func (item *registryItem) init(r *Registry, parent Metric, name string) {
+	item.registry = r
 	item.parent = parent
 	item.name = name
 }
@@ -44,4 +47,16 @@ func (item *registryItem) GetTag(key string) interface{} {
 		return nil
 	}
 	return item.tags.Get(key)
+}
+
+func (item *registryItem) lock() {
+	item.locker.Lock()
+}
+
+func (item *registryItem) unlock() {
+	item.locker.Unlock()
+}
+
+func (item *registryItem) Registry() *Registry {
+	return item.registry
 }

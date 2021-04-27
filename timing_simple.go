@@ -8,27 +8,31 @@ type MetricTimingSimple struct {
 	commonAggregativeSimple
 }
 
-func newMetricTimingSimple(key string, tags AnyTags) *MetricTimingSimple {
+func (r *Registry) newMetricTimingSimple(key string, tags AnyTags) *MetricTimingSimple {
 	metric := metricTimingSimplePool.Get().(*MetricTimingSimple)
-	metric.init(key, tags)
+	metric.init(r, key, tags)
 	return metric
 }
 
-func (m *MetricTimingSimple) init(key string, tags AnyTags) {
-	m.commonAggregativeSimple.init(m, key, tags)
+func (m *MetricTimingSimple) init(r *Registry, key string, tags AnyTags) {
+	m.commonAggregativeSimple.init(r, m, key, tags)
 }
 
 func TimingSimple(key string, tags AnyTags) *MetricTimingSimple {
+	return registry.TimingSimple(key, tags)
+}
+
+func (r *Registry) TimingSimple(key string, tags AnyTags) *MetricTimingSimple {
 	if IsDisabled() {
 		return (*MetricTimingSimple)(nil)
 	}
 
-	m := registry.Get(TypeTimingSimple, key, tags)
+	m := r.Get(TypeTimingSimple, key, tags)
 	if m != nil {
 		return m.(*MetricTimingSimple)
 	}
 
-	return newMetricTimingSimple(key, tags)
+	return r.newMetricTimingSimple(key, tags)
 }
 
 func (m *MetricTimingSimple) ConsiderValue(v time.Duration) {
