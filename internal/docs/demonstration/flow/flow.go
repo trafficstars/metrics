@@ -16,9 +16,9 @@ func main() {
 		metric.ConsiderValue(v)
 		fmt.Printf("%v\t%v\t%v\t%v\n",
 			v,
-			*metric.GetValuePointers().Total.GetPercentile(0.1),
-			*metric.GetValuePointers().Total.GetPercentile(0.9),
-			*metric.GetValuePointers().Total.GetPercentile(0.99),
+			*metric.GetValuePointers().Total().GetPercentile(0.1),
+			*metric.GetValuePointers().Total().GetPercentile(0.9),
+			*metric.GetValuePointers().Total().GetPercentile(0.99),
 		)
 	}
 }
